@@ -1,0 +1,2 @@
+CompileFlags:
+  Add: [-std=c++20, -Isrc, -I.deps/ps5-opengl/current/include, -DGL_GLEXT_PROTOTYPES=1, -fno-exceptions, -fno-rtti]

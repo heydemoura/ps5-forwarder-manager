@@ -1,0 +1,77 @@
+PS5 Forwarder - template
+========================
+
+The folder PPSA99100 is a complete forwarder: a home screen tile that starts any PS5 app with
+optional launch arguments. To make a tile, copy the folder and edit a few files. Nothing is
+rebuilt: every forwarder uses the same eboot.bin.
+
+A forwarder tile is an ordinary app, and an app may not start another app on the PS5. So the
+launch is done by ps5-app-launcher: a small payload you load once, with the same payload loader
+you use for ShadowMountPlus and etaHEN. The tile just asks it to launch.
+
+Needs: ps5-app-launcher loaded (below), and ShadowMountPlus to register the tile.
+
+
+Load the launcher payload (once)
+--------------------------------
+
+Download ps5-app-launcher.elf from https://github.com/MartinPham/ps5-app-launcher/releases
+and load it the same way you load ShadowMountPlus or etaHEN (your payload loader, or your autoload
+setup so it comes back after a reboot). It listens on 127.0.0.1 and launches the title each tile
+asks for. Load it once; it serves every forwarder.
+
+It writes /data/ps5-app-launcher/launcher.log, so you can check it is running.
+
+
+Make a forwarder
+----------------
+
+1. Copy the folder PPSA99100 and rename the copy to a new title ID, for example PPSA99101.
+   A title ID is PPSA and five digits. Each tile needs its own, not used by any other app
+   (not PPSA99100, the template).
+
+2. In the copy, edit sce_sys/param.json:
+     - replace 99100 with your five digits everywhere. That is three places:
+         "conceptId": "99101",
+         "contentId": "UP9000-PPSA99101_00-PS5FORWARDER0000",
+         "titleId": "PPSA99101",
+     - set the home screen name:
+         "titleName": "Some App"
+
+3. In the copy, edit forwarder.json (next to eboot.bin):
+     "target": "PPSA99008",
+     "args": ["--rom", "Some Game.nsp", "--exit-after-game"]
+   target is required: the title ID of the app to start. args is an optional list of launch
+   arguments passed to the target. Any arguments the target accepts can be listed.
+
+4. In the copy's sce_sys/ folder, replace the pictures:
+     icon0.png                  the tile: a PNG of exactly 512 x 512 pixels
+     pic0.dds + pic1.dds        optional background shown behind the focused tile, both or
+                                neither: 3840 x 2160 BC7 DDS.
+   To make pic0.dds + pic1.dds from an ordinary image (no Windows texture tool needed), from the
+   repository run:
+     python3 tools/make_background.py your-background.jpg PPSA99101/sce_sys/
+   (needs Python with numpy and Pillow). Or, if you keep forwarders in the repository, add a
+   background image to the folder (below) and the build makes them for you.
+
+5. Copy the folder to /data/homebrew/ (or another folder ShadowMountPlus scans).
+   ShadowMountPlus adds the tile on its next scan.
+
+
+Change a forwarder later
+------------------------
+
+- The target and args (forwarder.json) are read each time the tile is opened: edit any time.
+- The name and pictures are copied to the console when the tile is added. To change them,
+  edit the files, delete the tile from the home screen, and let ShadowMountPlus add it again.
+
+
+If something goes wrong
+-----------------------
+
+- "Forwarder: ps5-app-launcher is not running": load ps5-app-launcher.elf (above).
+- "Forwarder: could not start <TARGET> (...)": the daemon reached the launch but the console
+  refused it; the codes are in /data/ps5-app-launcher/launcher.log.
+- "Forwarder: target is required": forwarder.json is missing the "target" field.
+- Logs: the tile writes /data/ps5-forwarder/<TITLE_ID>.log; the launcher writes
+  /data/ps5-app-launcher/launcher.log.
