@@ -14,6 +14,7 @@
 #include "ui/components/toast.hpp"
 #include "ui/fonts.hpp"
 
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <utility>
@@ -25,6 +26,20 @@ namespace fwd
 namespace
 {
 
+bool read_whole_file(const std::string &path, std::vector<unsigned char> &out)
+{
+    std::FILE *file = std::fopen(path.c_str(), "rb");
+    if (file == nullptr)
+        return false;
+    out.clear();
+    unsigned char buffer[65536];
+    std::size_t got;
+    while ((got = std::fread(buffer, 1, sizeof(buffer), file)) > 0)
+        out.insert(out.end(), buffer, buffer + got);
+    std::fclose(file);
+    return !out.empty();
+}
+
 enum Row
 {
     RowName = 1,
@@ -35,6 +50,7 @@ enum Row
     RowExit,
     RowIcon,
     RowBackground,
+    RowMusic,
     RowGenerate,
     RowDelete,
 };
@@ -129,6 +145,8 @@ class EditScreen final : public Screen
             (forwarder_.has_icon || !assets_.icon_png.empty()) ? "set" : "(required)";
         form_.add_action(RowBackground, "Backgrounds").text =
             (forwarder_.has_backgrounds || !assets_.pic0_dds.empty()) ? "set" : "(optional)";
+        form_.add_action(RowMusic, "Selection music (.at9)").text =
+            (forwarder_.has_music || !assets_.music_at9.empty()) ? "set" : "(optional)";
 
         form_.add_header("");
         form_.add_action(RowGenerate, editing_ ? "Save forwarder" : "Generate forwarder")
@@ -249,7 +267,7 @@ class EditScreen final : public Screen
         {
             EditScreen *self = this;
             context.push(make_file_picker_screen(
-                context, context.settings.forwarders_root, {},
+                context, "/data", {},
                 [self](const std::string &path)
                 {
                     const std::size_t slash = path.find_last_of('/');
@@ -280,6 +298,22 @@ class EditScreen final : public Screen
                     self->assets_.pic0_dds = bytes;
                     self->assets_.pic1_dds = std::move(bytes);
                     self->dirty_ = true;
+                }));
+            break;
+        }
+        case RowMusic:
+        {
+            EditScreen *self = this;
+            context.push(make_file_picker_screen(
+                context, "/data", {".at9"},
+                [self](const std::string &path)
+                {
+                    std::vector<unsigned char> bytes;
+                    if (read_whole_file(path, bytes))
+                    {
+                        self->assets_.music_at9 = std::move(bytes);
+                        self->dirty_ = true;
+                    }
                 }));
             break;
         }

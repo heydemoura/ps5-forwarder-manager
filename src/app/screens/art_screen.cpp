@@ -123,7 +123,7 @@ class ArtScreen final : public Screen
             else
             {
                 context.push(make_file_picker_screen(
-                    context, context.settings.forwarders_root,
+                    context, "/data",
                     {".png", ".jpg", ".jpeg", ".bmp"},
                     [self, &context](const std::string &path)
                     { self->finish_from_file(context, path); }));
