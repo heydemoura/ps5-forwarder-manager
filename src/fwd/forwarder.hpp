@@ -34,6 +34,9 @@ struct Target
 // The built-in emulator targets the site offers, plus "generic".
 std::vector<Target> known_targets();
 
+// A friendly name for a target title ID (emulator name, or the ID itself).
+std::string target_display_name(const std::string &title_id);
+
 struct Forwarder
 {
     std::string title_id;     // PPSA99xxx (the folder name)

@@ -59,6 +59,7 @@ class SettingsScreen final : public Screen
         form_.set_bounds(kFormBounds);
         form_.set_active(true);
         prompt_.keyboard.style.bindings = hui::ui::KeyboardBindings::standard();
+        prompt_.style.buttons = false; // single Done: the keyboard's own key (closes on press)
         build(context);
     }
 

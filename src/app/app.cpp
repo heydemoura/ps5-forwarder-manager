@@ -162,6 +162,7 @@ void App::compose(hui::gfx::Renderer &renderer)
     if (!stack_->screens.empty())
     {
         const Screen &screen = *stack_->screens.back();
+        screen.backdrop(context, frame_.backdrop);
         hui::ui::Canvas scene{frame_.scene, context.fonts, 0, clock_};
         hui::ui::Canvas overlay{frame_.overlay, context.fonts, frame_.glass_texture, clock_};
         frame_.glass = screen.draw(context, scene, overlay);

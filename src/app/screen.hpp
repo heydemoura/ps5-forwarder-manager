@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/input.hpp"
+#include "gfx/backdrop_spec.hpp"
 #include "ui/components/component.hpp"
 #include "ui/feedback.hpp"
 #include "ui/glyphs.hpp"
@@ -40,6 +41,14 @@ class Screen
     virtual void restyle(Context &context)
     {
         (void)context;
+    }
+
+    // Lets the top screen choose the backdrop (mode and colours). Default
+    // keeps whatever the app set from the theme.
+    virtual void backdrop(Context &context, hui::gfx::BackdropSpec &spec) const
+    {
+        (void)context;
+        (void)spec;
     }
 
     // Development-only: inject text into whatever prompt this screen has open.

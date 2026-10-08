@@ -73,6 +73,7 @@ class SteamGridScreen final : public Screen
         grid_.style.columns = kind_ == ArtKind::icon ? 6 : 4;
         grid_.style.card.art_aspect = kind_ == ArtKind::icon ? 1.0f : 16.0f / 9.0f;
         prompt_.keyboard.style.bindings = hui::ui::KeyboardBindings::standard();
+        prompt_.style.buttons = false; // single Done: the keyboard's own key (closes on press)
         prompt_.set_title("Search SteamGridDB");
         prompt_.style.max_length = 80;
         hui::sys::log("[FWD] sgdb screen key_len=%zu", key_.size());

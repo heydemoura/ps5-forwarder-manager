@@ -15,6 +15,11 @@
 #include "net/http.hpp"
 #include "platform/ps5/system.hpp"
 #include "ui/fonts.hpp"
+#include "app/tile.hpp"
+#include "gfx/renderer.hpp"
+#include "gfx/gl_batch.hpp"
+#include <GL/glcorearb.h>
+#include <cmath>
 
 #include <atomic>
 #include <mutex>
@@ -31,6 +36,8 @@ namespace fwd
 
 namespace
 {
+
+extern "C" void glDeleteTextures(int n, const unsigned int *textures);
 
 bool read_whole_file(const std::string &path, std::vector<unsigned char> &out)
 {
@@ -69,7 +76,7 @@ enum class Prompting
     title_id,
 };
 
-constexpr hui::gfx::Rect kFormBounds{96.0f, 300.0f, 1728.0f, 640.0f};
+constexpr hui::gfx::Rect kFormBounds{96.0f, 300.0f, 1040.0f, 640.0f};
 
 class EditScreen final : public Screen
 {
@@ -87,11 +94,14 @@ class EditScreen final : public Screen
         form_.set_active(true);
         build(context);
         prompt_.keyboard.style.bindings = hui::ui::KeyboardBindings::standard();
+        prompt_.style.buttons = false; // single Done: the keyboard's own key (closes on press)
     }
 
     ~EditScreen() override
     {
         join_convert();
+        if (preview_tex_ != 0)
+            glDeleteTextures(1, &preview_tex_);
     }
 
     void restyle(Context &context) override
@@ -209,6 +219,7 @@ class EditScreen final : public Screen
                 hui::ui::Feedback &feedback) override
     {
         poll_convert(context);
+        refresh_preview(context);
         if (converting_)
         {
             toasts_.update(dt, feedback);
@@ -304,6 +315,7 @@ class EditScreen final : public Screen
                 {
                     self->assets_.icon_png = std::move(bytes);
                     self->dirty_ = true;
+                    self->icon_dirty_ = true;
                 }));
             break;
         }
@@ -492,6 +504,28 @@ class EditScreen final : public Screen
             build(context);
             dirty_ = false;
         }
+        if (preview_tex_ == 0 && assets_.icon_png.empty() && editing_ && forwarder_.has_icon)
+        {
+            const std::string dir =
+                context.settings.forwarders_root + "/" + forwarder_.title_id;
+            preview_tex_ = load_icon_texture(context.renderer, dir);
+        }
+        refresh_preview(context);
+    }
+
+    void refresh_preview(Context &context)
+    {
+        if (!icon_dirty_)
+            return;
+        icon_dirty_ = false;
+        if (preview_tex_ != 0)
+        {
+            glDeleteTextures(1, &preview_tex_);
+            preview_tex_ = 0;
+        }
+        if (!assets_.icon_png.empty())
+            preview_tex_ = upload_image_texture(context.renderer, assets_.icon_png.data(),
+                                               assets_.icon_png.size());
     }
 
     bool draw(Context &context, hui::ui::Canvas &scene, hui::ui::Canvas &overlay) const override
@@ -501,6 +535,7 @@ class EditScreen final : public Screen
         hui::ui::text(scene.list, context.fonts.display,
                       editing_ ? "Edit forwarder" : "New forwarder", 96.0f, 150.0f, 46.0f, text);
         form_.draw(scene);
+        draw_preview(context, scene.list);
         if (converting_)
             hui::ui::text(scene.list, context.fonts.regular, "Converting audio to ATRAC9 online...",
                           96.0f, 960.0f, 26.0f, theme.text_muted);
@@ -509,6 +544,59 @@ class EditScreen final : public Screen
         prompt_.draw(overlay);
         toasts_.draw(overlay);
         return modal;
+    }
+
+    void draw_preview(Context &context, hui::gfx::DrawList &list) const
+    {
+        using hui::gfx::Color;
+        using hui::gfx::Rect;
+        const hui::ui::Fonts &fonts = context.fonts;
+        const Color white = Color::rgb(0xffffff);
+        const std::string seed =
+            forwarder_.title_id.empty() ? std::string("__new__") : forwarder_.title_id;
+        const Color accent = accent_for(seed);
+
+        // Panel.
+        const Rect panel{1180.0f, 300.0f, 644.0f, 620.0f};
+        list.rounded_rect(panel, 28.0f, Color::rgb(0x0b0d16, 0.5f));
+        list.bordered_rect(panel, 28.0f, Color::rgb(0x000000, 0.0f), 1.5f, white.with_alpha(0.14f));
+        hui::ui::text(list, fonts.semibold, "LIVE PREVIEW", panel.x + 36.0f, panel.y + 52.0f, 18.0f,
+                      accent, hui::gfx::Align::left, 4.0f);
+
+        // The tile as the home screen would show it.
+        const float size = 300.0f;
+        const Rect art{panel.cx() - size * 0.5f, panel.y + 84.0f, size, size};
+        list.glow(art.inset(24.0f), 50.0f, 70.0f, accent.with_alpha(0.3f));
+        list.shadow({art.x, art.y + 20.0f, art.w, art.h}, 30.0f, 40.0f, Color::rgb(0x000000, 0.5f));
+        if (preview_tex_ != 0)
+        {
+            list.image(preview_tex_, art, hui::gfx::kFullUv, white, 28.0f);
+        }
+        else
+        {
+            list.gradient_rect(art, 28.0f, hui::gfx::mix(accent, Color::rgb(0x0b0d16), 0.4f),
+                               Color::rgb(0x0b0d16));
+            hui::ui::text(list, fonts.regular, "no icon yet", art.cx(), art.cy() + 8.0f, 24.0f,
+                          white.with_alpha(0.6f), hui::gfx::Align::center);
+        }
+        list.bordered_rect(art, 28.0f, Color::rgb(0x000000, 0.0f), 2.0f, white.with_alpha(0.16f));
+
+        // Title under the tile, like the home screen.
+        const std::string name =
+            forwarder_.display_name.empty() ? std::string("Untitled forwarder")
+                                            : forwarder_.display_name;
+        hui::ui::text(list, fonts.semibold, name, panel.cx(), art.y + art.h + 54.0f, 30.0f,
+                      forwarder_.display_name.empty() ? white.with_alpha(0.5f) : white,
+                      hui::gfx::Align::center);
+        hui::ui::text(list, fonts.regular,
+                      std::string("Runs on ") + target_display_name(forwarder_.target),
+                      panel.cx(), art.y + art.h + 94.0f, 24.0f, accent, hui::gfx::Align::center);
+        hui::ui::text(list, fonts.regular, forwarder_.title_id, panel.cx(), art.y + art.h + 128.0f,
+                      20.0f, white.with_alpha(0.55f), hui::gfx::Align::center);
+        if (!forwarder_.rom.empty())
+            hui::ui::text(list, fonts.regular, std::string("ROM: ") + forwarder_.rom, panel.cx(),
+                          art.y + art.h + 162.0f, 20.0f, white.with_alpha(0.7f),
+                          hui::gfx::Align::center);
     }
 
     std::span<const hui::ui::Hint> hints() const override
@@ -531,6 +619,10 @@ class EditScreen final : public Screen
     mutable hui::ui::Dialog dialog_;
     mutable hui::ui::InputPrompt prompt_;
     mutable hui::ui::ToastStack toasts_;
+
+    // Live preview.
+    std::uint32_t preview_tex_ = 0;
+    bool icon_dirty_ = true;
 
     // Online AT9 conversion worker.
     bool converting_ = false;

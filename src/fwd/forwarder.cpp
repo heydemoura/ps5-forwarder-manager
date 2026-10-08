@@ -39,6 +39,14 @@ bool directory_exists(const std::string &path)
 
 } // namespace
 
+std::string target_display_name(const std::string &title_id)
+{
+    for (const Target &target : known_targets())
+        if (title_id == target.title_id && target.title_id[0] != '\0')
+            return target.name;
+    return title_id.empty() ? std::string("(no target)") : title_id;
+}
+
 std::vector<Target> known_targets()
 {
     return {
