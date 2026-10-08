@@ -47,6 +47,8 @@ std::vector<unsigned char> make_background_dds_rgba(const unsigned char *rgba,
                                                     int w, int h);
 
 // The target dimensions, for callers.
+bool write_png_file(const char *path, const unsigned char *rgba, int w, int h);
+
 constexpr int kIconSize = 512;
 constexpr int kBackgroundWidth = 3840;
 constexpr int kBackgroundHeight = 2160;

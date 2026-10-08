@@ -354,4 +354,10 @@ std::vector<unsigned char> make_background_dds(const unsigned char *data,
     return make_background_dds_rgba(rgba.data(), w, h);
 }
 
+
+bool write_png_file(const char *path, const unsigned char *rgba, int w, int h)
+{
+    return stbi_write_png(path, w, h, 4, rgba, w * 4) != 0;
+}
+
 }  // namespace fwd

@@ -93,7 +93,11 @@ class EditScreen final : public Screen
         form_.set_bounds(kFormBounds);
         form_.set_active(true);
         build(context);
-        prompt_.keyboard.style.bindings = hui::ui::KeyboardBindings::standard();
+        {
+            auto kb = hui::ui::KeyboardBindings::standard();
+            kb.done = hui::Action::page_next; // R1 confirms (a console keyboard nicety)
+            prompt_.keyboard.style.bindings = kb;
+        }
         prompt_.style.buttons = false; // single Done: the keyboard's own key (closes on press)
     }
 
@@ -235,6 +239,9 @@ class EditScreen final : public Screen
             prompt_.update(dt);
             return;
         }
+        // Keep animating the prompt's fade-out after it closes, so the
+        // keyboard actually disappears (visible() depends on the fade).
+        prompt_.update(dt);
         if (dialog_.is_open())
         {
             const hui::ui::Event event = dialog_.handle(input, feedback);
@@ -622,7 +629,7 @@ class EditScreen final : public Screen
 
     // Live preview.
     std::uint32_t preview_tex_ = 0;
-    bool icon_dirty_ = true;
+    bool icon_dirty_ = false;  // set when art changes; enter() loads an existing icon
 
     // Online AT9 conversion worker.
     bool converting_ = false;

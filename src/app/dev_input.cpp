@@ -45,6 +45,11 @@ Command parse_line(const std::string &line)
         command.kind = Kind::quit;
         return command;
     }
+    if (line == "shot")
+    {
+        command.kind = Kind::shot;
+        return command;
+    }
     struct Map
     {
         const char *name;

@@ -72,7 +72,11 @@ class SteamGridScreen final : public Screen
         grid_.set_active(true);
         grid_.style.columns = kind_ == ArtKind::icon ? 6 : 4;
         grid_.style.card.art_aspect = kind_ == ArtKind::icon ? 1.0f : 16.0f / 9.0f;
-        prompt_.keyboard.style.bindings = hui::ui::KeyboardBindings::standard();
+        {
+            auto kb = hui::ui::KeyboardBindings::standard();
+            kb.done = hui::Action::page_next; // R1 confirms (a console keyboard nicety)
+            prompt_.keyboard.style.bindings = kb;
+        }
         prompt_.style.buttons = false; // single Done: the keyboard's own key (closes on press)
         prompt_.set_title("Search SteamGridDB");
         prompt_.style.max_length = 80;
@@ -354,6 +358,7 @@ class SteamGridScreen final : public Screen
             prompt_.update(dt);
             return;
         }
+        prompt_.update(dt);
 
         if (input.is_pressed(hui::Action::back))
         {

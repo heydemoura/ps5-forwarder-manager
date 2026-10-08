@@ -58,7 +58,11 @@ class SettingsScreen final : public Screen
         restyle(context);
         form_.set_bounds(kFormBounds);
         form_.set_active(true);
-        prompt_.keyboard.style.bindings = hui::ui::KeyboardBindings::standard();
+        {
+            auto kb = hui::ui::KeyboardBindings::standard();
+            kb.done = hui::Action::page_next; // R1 confirms (a console keyboard nicety)
+            prompt_.keyboard.style.bindings = kb;
+        }
         prompt_.style.buttons = false; // single Done: the keyboard's own key (closes on press)
         build(context);
     }
@@ -116,6 +120,7 @@ class SettingsScreen final : public Screen
             prompt_.update(dt);
             return;
         }
+        prompt_.update(dt);
         if (input.is_pressed(hui::Action::back))
         {
             context.save_settings();

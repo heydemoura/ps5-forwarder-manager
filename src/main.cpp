@@ -17,6 +17,8 @@
 #include "core/input.hpp"
 #include "core/save_file.hpp"
 #include "core/version.hpp"
+#include "fwd/image.hpp"
+#include "gfx/canvas.hpp"
 #include "gfx/renderer.hpp"
 #include "platform/app_paths.hpp"
 #include "platform/elevation.hpp"
@@ -28,6 +30,7 @@
 
 #include <GL/glcorearb.h>
 
+#include <cstring>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -163,6 +166,11 @@ int main()
     FrameStats stats;
     PadSample samples[64];
     std::int64_t last_frame_start = sys::monotonic_us();
+    gfx::Canvas shot_canvas;
+    bool shot_pending = false;
+    int shot_index = 0;
+    constexpr int kShotW = 960;
+    constexpr int kShotH = 540;
     for (;;)
     {
         const std::int64_t now = sys::monotonic_us();
@@ -188,6 +196,11 @@ int main()
         else if (dev.kind == dev_input::Kind::quit)
         {
             app.dev_quit();
+            input.connected = true;
+        }
+        else if (dev.kind == dev_input::Kind::shot)
+        {
+            shot_pending = true;
             input.connected = true;
         }
         else
@@ -221,6 +234,32 @@ int main()
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         renderer.present(0, display.width(), display.height());
+        if (shot_pending)
+        {
+            shot_pending = false;
+            if (shot_canvas.texture() == 0)
+                shot_canvas.create(kShotW, kShotH, 1);
+            shot_canvas.bind();
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            renderer.present(shot_canvas.framebuffer(), kShotW, kShotH);
+            glBindFramebuffer(GL_FRAMEBUFFER, shot_canvas.framebuffer());
+            std::vector<unsigned char> px(static_cast<std::size_t>(kShotW) * kShotH * 4);
+            glReadPixels(0, 0, kShotW, kShotH, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            // glReadPixels is bottom-row-first; flip to top-row-first for PNG.
+            std::vector<unsigned char> flip(px.size());
+            for (int y = 0; y < kShotH; ++y)
+                std::memcpy(&flip[static_cast<std::size_t>(y) * kShotW * 4],
+                            &px[static_cast<std::size_t>(kShotH - 1 - y) * kShotW * 4],
+                            static_cast<std::size_t>(kShotW) * 4);
+            char shot_path[96];
+            (void)std::snprintf(shot_path, sizeof(shot_path),
+                                "/data/ps5fwdgen-dev/shot-%d.png", shot_index++);
+            const bool ok = fwd::write_png_file(shot_path, flip.data(), kShotW, kShotH);
+            sys::log("[FWD] screenshot %s ok=%d", shot_path, ok ? 1 : 0);
+            last_frame_start = sys::monotonic_us();
+        }
         if (!display.swap())
         {
             sys::log("[FWD] fatal: swap failed frame=%llu error=%s",

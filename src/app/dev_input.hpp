@@ -21,6 +21,7 @@ enum class Kind
     button, // feed `frame` to the app this frame
     text,   // inject `text` into the active prompt
     quit,   // close the app
+    shot,   // capture a screenshot to /data/ps5fwdgen-dev/shot.png
 };
 
 struct Command
