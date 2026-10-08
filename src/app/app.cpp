@@ -95,6 +95,20 @@ bool App::quit_requested() const
     return context_->quit;
 }
 
+bool App::dev_type(const std::string &text)
+{
+    if (stack_->screens.empty())
+        return false;
+    const bool handled = stack_->screens.back()->dev_inject_text(*context_, text);
+    apply_navigation();
+    return handled;
+}
+
+void App::dev_quit()
+{
+    context_->quit = true;
+}
+
 void App::apply_navigation()
 {
     Context &context = *context_;

@@ -164,6 +164,21 @@ class SettingsScreen final : public Screen
         form_.update(dt);
     }
 
+    bool dev_inject_text(Context &context, const std::string &text) override
+    {
+        if (!prompt_.is_open())
+            return false;
+        if (prompting_ == Prompting::root && !text.empty())
+            context.settings.forwarders_root = text;
+        else if (prompting_ == Prompting::key)
+            context.settings.steamgriddb_key = text;
+        context.save_settings();
+        prompting_ = Prompting::none;
+        prompt_.dismiss();
+        build(context);
+        return true;
+    }
+
     bool draw(Context &context, hui::ui::Canvas &scene, hui::ui::Canvas &overlay) const override
     {
         const hui::ui::Theme &theme = context.theme;

@@ -13,6 +13,7 @@
 #include "ui/components/input_prompt.hpp"
 #include "ui/components/toast.hpp"
 #include "net/http.hpp"
+#include "platform/ps5/system.hpp"
 #include "ui/fonts.hpp"
 
 #include <atomic>
@@ -193,6 +194,8 @@ class EditScreen final : public Screen
                                                    context.app_template_root, forwarder_, assets_);
         if (result.ok)
         {
+            hui::sys::log("[FWD] ui-generate title=%s name=\"%s\" ok=1",
+                          forwarder_.title_id.c_str(), forwarder_.display_name.c_str());
             feedback.play(hui::audio::Cue::complete);
             context.pop(); // back to home, which rescans on enter
         }
@@ -439,6 +442,16 @@ class EditScreen final : public Screen
             toasts_.push(hui::ui::StatusKind::danger, "Could not convert audio",
                          convert_error_.empty() ? "Use a pre-made .at9 file." : convert_error_);
         }
+    }
+
+    bool dev_inject_text(Context &context, const std::string &text) override
+    {
+        if (!prompt_.is_open())
+            return false;
+        apply_prompt(context, text);
+        prompting_ = Prompting::none;
+        prompt_.dismiss();
+        return true;
     }
 
     void open_prompt(Prompting kind, const std::string &title, const std::string &initial,

@@ -12,6 +12,7 @@
 #include "fwd/image.hpp"
 #include "gfx/renderer.hpp"
 #include "net/steamgriddb.hpp"
+#include "platform/ps5/system.hpp"
 #include "ui/components/grid.hpp"
 #include "ui/components/input_prompt.hpp"
 #include "ui/components/list.hpp"
@@ -224,6 +225,7 @@ class SteamGridScreen final : public Screen
         const Job job = pending_;
         pending_ = Job::none;
         const bool ok = shared_.ok.load();
+        hui::sys::log("[FWD] sgdb job=%d ok=%d", static_cast<int>(job), ok ? 1 : 0);
         if (!ok)
         {
             std::lock_guard<std::mutex> lock(shared_.mutex);
@@ -240,6 +242,7 @@ class SteamGridScreen final : public Screen
                     items.push_back({game.name, "SteamGridDB #" + std::to_string(game.id), "", "",
                                      {}, true, false, false, 0});
             }
+            hui::sys::log("[FWD] sgdb games=%zu", items.size());
             games_.set_items(std::move(items));
             games_.set_focus(0, true);
             message_ = games_.items().empty() ? "No matches. Press Triangle to search again." : "";
@@ -307,6 +310,7 @@ class SteamGridScreen final : public Screen
             }
             cards.push_back(std::move(card));
         }
+        hui::sys::log("[FWD] sgdb thumbs=%zu", cards.size());
         grid_.set_items(std::move(cards));
         grid_.set_focus(0, true);
         message_ = "";
@@ -399,6 +403,20 @@ class SteamGridScreen final : public Screen
                 start_job(Job::full);
             }
         }
+    }
+
+    bool dev_inject_text(Context &context, const std::string &text) override
+    {
+        if (!prompt_.is_open())
+            return false;
+        query_ = text;
+        prompt_.dismiss();
+        if (!query_.empty())
+        {
+            previous_phase_ = Phase::query;
+            start_job(Job::search);
+        }
+        return true;
     }
 
     bool draw(Context &context, hui::ui::Canvas &scene, hui::ui::Canvas &overlay) const override

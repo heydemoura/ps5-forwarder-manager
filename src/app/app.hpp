@@ -59,6 +59,11 @@ class App
     bool swap_confirm() const;
     bool quit_requested() const;
 
+    // Development-only scripted-input hooks.
+    void dev_update(const hui::InputFrame &input, float dt) { update(input, dt); }
+    bool dev_type(const std::string &text);
+    void dev_quit();
+
   private:
     struct Stack;
     void apply_navigation();

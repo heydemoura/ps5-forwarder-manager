@@ -59,4 +59,16 @@ since an elevated app cannot use `sceHttp`). See `.env.example`.
 | `src/{gfx,ui,audio,core,runtime}` | The ps5-homebrew-ui kit |
 | `assets/forwarder-template/` | The shared launcher `eboot.bin` and `libc.prx` |
 
+## Development harness
+
+Because the build host has no controller, the app carries a dev-only harness
+that is inert unless trigger files exist under `/data/ps5fwdgen-dev/`:
+
+- `input.txt` - a line-per-command script (`up`/`down`/`cross`/`type:<text>`/
+  `wait N`/`quit`) fed as synthetic input to the real screens, consumed once.
+- `selftest.txt` - runs the real `write_forwarder()` once with test values.
+
+These are read only when present and never affect normal use. SteamGridDB needs
+your own API key, entered in Settings.
+
 Licensed GPL-3.0-or-later. See `THIRD_PARTY_NOTICES.md`.

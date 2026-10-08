@@ -9,6 +9,7 @@
 #include "ui/glyphs.hpp"
 
 #include <span>
+#include <string>
 
 namespace fwd
 {
@@ -39,6 +40,15 @@ class Screen
     virtual void restyle(Context &context)
     {
         (void)context;
+    }
+
+    // Development-only: inject text into whatever prompt this screen has open.
+    // Returns true when it was consumed. Default: ignored.
+    virtual bool dev_inject_text(Context &context, const std::string &text)
+    {
+        (void)context;
+        (void)text;
+        return false;
     }
 };
 

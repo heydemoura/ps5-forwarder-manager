@@ -8,6 +8,7 @@
 // asked for, draw, present.
 
 #include "app/app.hpp"
+#include "app/dev_input.hpp"
 #include "app/dev_selftest.hpp"
 #include "app/settings.hpp"
 #include "audio/cues.hpp"
@@ -169,9 +170,32 @@ int main()
         last_frame_start = now;
         if (dt > 0.05f)
             dt = 0.05f; // a hitch must not teleport the animations
-        const std::size_t count = pad.read(samples);
-        const InputFrame input = tracker.update(std::span<const PadSample>(samples, count),
-                                                static_cast<std::uint64_t>(now));
+        // Development-only scripted input: drives the real screens when a
+        // script has been dropped on the console (see app/dev_input).
+        if (frames % 30 == 0)
+            dev_input::poll();
+        const dev_input::Command dev = dev_input::next();
+        InputFrame input;
+        if (dev.kind == dev_input::Kind::button)
+        {
+            input = dev.frame;
+        }
+        else if (dev.kind == dev_input::Kind::text)
+        {
+            (void)app.dev_type(dev.text);
+            input.connected = true;
+        }
+        else if (dev.kind == dev_input::Kind::quit)
+        {
+            app.dev_quit();
+            input.connected = true;
+        }
+        else
+        {
+            const std::size_t count = pad.read(samples);
+            input = tracker.update(std::span<const PadSample>(samples, count),
+                                   static_cast<std::uint64_t>(now));
+        }
 
         app.update(input, dt);
         if (app.take_settings_changed())

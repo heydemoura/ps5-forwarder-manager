@@ -244,6 +244,15 @@ class FilePickerScreen final : public Screen
         read_dir();
     }
 
+    bool dev_inject_text(Context &context, const std::string &path) override
+    {
+        if (path.empty() || !on_pick_)
+            return false;
+        on_pick_(path);
+        context.pop();
+        return true;
+    }
+
     void restyle(Context &context) override
     {
         list_.style.theme = context.theme;
