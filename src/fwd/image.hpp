@@ -1,0 +1,56 @@
+// image.hpp - image helpers for the PS5 forwarder generator.
+//
+// Ports two image encoders from the ps5-forwarder.mph.am website JavaScript
+// to C++20:
+//   - makeIcon()      -> make_icon_png() / make_icon_png_rgba()
+//   - backgroundRgba()+backgroundDds() -> make_background_dds() /
+//     make_background_dds_rgba()
+//
+// The DDS path contains a faithful transcription of the website's hand-rolled
+// BC7 (mode 6) block encoder so that the produced .dds files are bit-identical
+// to the ones the website generates for the same RGBA input; the PS5 shell
+// reads these files.
+//
+// No exceptions, no RTTI. Allocation failure aborts (std::vector under
+// -fno-exceptions), which is acceptable for this tool.
+
+#ifndef FWD_IMAGE_HPP
+#define FWD_IMAGE_HPP
+
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
+namespace fwd {
+
+// Decode any common image (PNG/JPG/BMP/TGA/GIF/PSD) from a memory buffer to
+// RGBA8. Returns false on failure. On success out_rgba has w*h*4 bytes.
+bool decode_image(const unsigned char *data, std::size_t size,
+                  int &w, int &h, std::vector<unsigned char> &out_rgba);
+
+// Center-crop to a square (min dimension), resize to 512x512, encode PNG.
+// Mirrors the website's makeIcon(). Input is an encoded image file in memory.
+// Returns the PNG bytes, empty on failure.
+std::vector<unsigned char> make_icon_png(const unsigned char *data,
+                                         std::size_t size);
+
+// Also accept already-decoded RGBA:
+std::vector<unsigned char> make_icon_png_rgba(const unsigned char *rgba, int w,
+                                              int h);
+
+// Scale an image to COVER 3840x2160 (center-crop overflow), encode as a
+// BC7 (mode 6) DDS exactly as the website's backgroundRgba()+backgroundDds().
+// Returns the .dds bytes, empty on failure.
+std::vector<unsigned char> make_background_dds(const unsigned char *data,
+                                               std::size_t size);
+std::vector<unsigned char> make_background_dds_rgba(const unsigned char *rgba,
+                                                    int w, int h);
+
+// The target dimensions, for callers.
+constexpr int kIconSize = 512;
+constexpr int kBackgroundWidth = 3840;
+constexpr int kBackgroundHeight = 2160;
+
+}  // namespace fwd
+
+#endif  // FWD_IMAGE_HPP

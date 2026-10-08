@@ -144,3 +144,28 @@ The BlackBear icon, selection artwork, and default selection track
 is titled `Night Drive`.
 
 No proprietary runtime module, encryption key, or game file is included.
+
+## ps5fwdgen additions
+
+This application is a native port of the web tool
+[ps5-forwarder.mph.am](https://ps5-forwarder.mph.am/) by Martin Pham. The
+forwarder template (`assets/forwarder-template/eboot.bin` and
+`sce_module/libc.prx`) and the generated `forwarder.json` / `param.json`
+layout follow that project's format; the shared launcher binaries are
+distributed by it and are not built here. The BC7 DDS and 512x512 PNG image
+encoders in `src/fwd/image.cpp` are a C++ transcription of that site's
+client-side encoder.
+
+The companion runtime, [ps5-app-launcher](https://github.com/MartinPham/ps5-app-launcher),
+must be loaded on the console for a forwarder tile to launch its target.
+
+| Project | Role |
+| --- | --- |
+| [blackbearreloaded/ps5-homebrew-ui](https://github.com/blackbearreloaded/ps5-homebrew-ui) | OpenGL UI kit (`src/{gfx,ui,audio,core,runtime,platform/ps5}`, baked fonts, sound sets); GPL-3.0-or-later |
+| [blackbearreloaded/ps5-opengl](https://github.com/blackbearreloaded/ps5-opengl) | OpenGL 4.6 runtime for PS5, fetched to `.deps/ps5-opengl/` |
+| [nothings/stb](https://github.com/nothings/stb) | `stb_image`, `stb_image_write`, `stb_image_resize2` (public domain / MIT), in `third_party/stb/` |
+| [SteamGridDB](https://www.steamgriddb.com/) | Game artwork, via its public API v2 with a user-supplied key |
+| [curl](https://curl.se/) / [OpenSSL](https://www.openssl.org/) | HTTPS client for SteamGridDB, linked from PacBrew |
+
+Artwork fetched from SteamGridDB is contributed by its community and belongs to
+its uploaders; it is used here only to build a personal home-screen tile.

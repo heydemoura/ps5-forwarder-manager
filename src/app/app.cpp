@@ -8,6 +8,7 @@
 #include "app/screen.hpp"
 #include "app/screens/home_screen.hpp"
 #include "gfx/renderer.hpp"
+#include "platform/app_paths.hpp"
 #include "platform/ps5/system.hpp"
 #include "ui/components/component.hpp"
 #include "ui/glyphs.hpp"
@@ -50,6 +51,7 @@ App::App(const hui::ui::Fonts &fonts, hui::gfx::Renderer &renderer, std::string 
     : context_(new Context{fonts, renderer, hui::ui::default_theme(), Settings{}}), stack_(new Stack)
 {
     context_->data_root = std::move(data_root);
+    context_->app_template_root = paths::assets() + "/forwarder-template";
     context_->settings = Settings::load(context_->data_root + "/settings.txt");
     context_->theme = theme_at(context_->settings.theme);
     context_->elevated = elevated;
