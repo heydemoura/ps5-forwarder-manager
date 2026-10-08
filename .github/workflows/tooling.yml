@@ -27,6 +27,8 @@ jobs:
     env:
       CCACHE_DIR: ${{ github.workspace }}/.deps/ccache
       CCACHE_MAXSIZE: 500M
+      # Baked into the app as the default SteamGridDB key (stored as a repo secret).
+      STEAMGRIDDB_API_KEY: ${{ secrets.STEAMGRIDDB_API_KEY }}
 
     steps:
       - name: Check out source

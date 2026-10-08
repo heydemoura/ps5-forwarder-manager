@@ -33,6 +33,17 @@ override APP_IMPORT_STUBS := $(strip $(OPENGL_SDK)/lib/libSceAgc.so \
 	$(OPENGL_SDK)/lib/libSceAgcDriver.so $(APP_IMPORT_STUBS))
 override APP_WRAP_SYMBOLS := $(strip sceSystemServiceHideSplashScreen \
 	malloc calloc realloc free posix_memalign malloc_usable_size $(APP_WRAP_SYMBOLS))
+
+# SteamGridDB API key: taken from the environment (an env var locally via .env,
+# or the GitHub Actions secret in CI), never committed. When set, it is baked
+# in as the default key the app uses when the user has not entered one in
+# Settings. The value is alphanumeric, which the build's definition validator
+# accepts without quoting.
+STEAMGRIDDB_API_KEY ?=
+ifneq ($(strip $(STEAMGRIDDB_API_KEY)),)
+override APP_DEFINITIONS := $(strip STEAMGRIDDB_API_KEY=$(STEAMGRIDDB_API_KEY) $(APP_DEFINITIONS))
+endif
+export STEAMGRIDDB_API_KEY
 PACBREW_PACKAGES ?=
 PACBREW_INCLUDE_PATHS ?=
 PACBREW_STATIC_ARCHIVES ?=

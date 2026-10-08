@@ -16,6 +16,18 @@ namespace fwd
 namespace
 {
 
+// A key baked in at build time from the STEAMGRIDDB_API_KEY environment value
+// (a GitHub Actions secret in CI, or .env locally). Empty when the build had
+// no key. A key the user enters in Settings always overrides it.
+#if defined(STEAMGRIDDB_API_KEY)
+#define FWD_STRINGIFY2(x) #x
+#define FWD_STRINGIFY(x) FWD_STRINGIFY2(x)
+constexpr const char *kBuiltinSteamGridDbKey = FWD_STRINGIFY(STEAMGRIDDB_API_KEY);
+#else
+constexpr const char *kBuiltinSteamGridDbKey = "";
+#endif
+
+
 std::string_view trim(std::string_view value)
 {
     while (!value.empty() && (value.front() == ' ' || value.front() == '\t' ||
@@ -37,6 +49,7 @@ bool to_bool(std::string_view value)
 Settings Settings::load(const std::string &path)
 {
     Settings settings;
+    settings.steamgriddb_key = kBuiltinSteamGridDbKey; // env/secret default
     std::string text;
     if (!hui::save::read_file(path, &text, 64u << 10))
         return settings;
@@ -69,6 +82,8 @@ Settings Settings::load(const std::string &path)
         else if (key == "convert_audio_online")
             settings.convert_audio_online = to_bool(value);
     }
+    if (settings.steamgriddb_key.empty())
+        settings.steamgriddb_key = kBuiltinSteamGridDbKey;
     return settings;
 }
 
