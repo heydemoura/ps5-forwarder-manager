@@ -38,7 +38,19 @@ step that needs the owner's SteamGridDB API key.
   a server serving the documented SteamGridDB response shapes (used because no
   valid key was available; the server required the bearer header).
 
-## The one step that needs your API key
+## SteamGridDB authenticated flow — DONE (verified with the owner's key, 2026-10-08)
+
+Run with the owner's real SteamGridDB API key (not stored in this repo):
+
+- Host, real client code: search "Hollow Knight" -> 10 games (top #7545),
+  assets -> 41 grids, CDN download 1,098,215 bytes, encoded to a valid
+  512x512 PNG icon. ("ALL OK")
+- On the console through the UI: key entered in Settings (len 32) ->
+  `[FWD] sgdb job=1 ok=1` / `games=10` -> `job=2 ok=1` -> `job=3 ok=1` /
+  `thumbs=41` (grid rendered) -> `job=4 ok=1` (full image downloaded), all
+  from the elevated app at 60 fps with no crash, against the live API.
+
+### Reproduce it yourself
 
 A successful authenticated response from the real SteamGridDB API needs a key
 tied to a Steam account (steamgriddb.com/profile/preferences/api). None is
