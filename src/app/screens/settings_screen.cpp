@@ -8,6 +8,7 @@
 #include "ui/components/form.hpp"
 #include "ui/components/input_prompt.hpp"
 #include "ui/fonts.hpp"
+#include "platform/ps5/system.hpp"
 #include "ui/theme.hpp"
 
 #include <memory>
@@ -173,6 +174,7 @@ class SettingsScreen final : public Screen
         else if (prompting_ == Prompting::key)
             context.settings.steamgriddb_key = text;
         context.save_settings();
+        hui::sys::log("[FWD] settings key set len=%zu", context.settings.steamgriddb_key.size());
         prompting_ = Prompting::none;
         prompt_.dismiss();
         build(context);

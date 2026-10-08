@@ -75,6 +75,7 @@ class SteamGridScreen final : public Screen
         prompt_.keyboard.style.bindings = hui::ui::KeyboardBindings::standard();
         prompt_.set_title("Search SteamGridDB");
         prompt_.style.max_length = 80;
+        hui::sys::log("[FWD] sgdb screen key_len=%zu", key_.size());
     }
 
     ~SteamGridScreen() override
@@ -230,6 +231,7 @@ class SteamGridScreen final : public Screen
         {
             std::lock_guard<std::mutex> lock(shared_.mutex);
             message_ = shared_.error.empty() ? "Request failed" : shared_.error;
+            hui::sys::log("[FWD] sgdb error: %s", message_.c_str());
             phase_ = job == Job::search ? Phase::query : previous_phase_;
             return;
         }

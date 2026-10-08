@@ -1,0 +1,43 @@
+{
+  "accessibility": {
+    "high_contrast": false,
+    "large_text": false,
+    "reduce_motion": false
+  },
+  "audio": {
+    "menu_volume": 70,
+    "mute": false,
+    "volume": 100
+  },
+  "controls": {
+    "vibration": true
+  },
+  "diagnostics": {
+    "detailed_logging": false
+  },
+  "performance": {
+    "async_shaders": false,
+    "block_list": false,
+    "fast_gpu": false,
+    "reactive_flushing": true,
+    "skip_invalidation": false,
+    "unsafe_cpu": false,
+    "unsafe_dma": false
+  },
+  "profiles": {
+    "current": "1B54C34B4BE9CED62403E1061F43CAB5",
+    "first": "1B54C34B4BE9CED62403E1061F43CAB5"
+  },
+  "system": {
+    "language": "en-US"
+  },
+  "version": 1,
+  "video": {
+    "fps_overlay": true,
+    "output_resolution": "1440p",
+    "refresh_rate": "60",
+    "renderer": "vulkan",
+    "resolution": "1x",
+    "upscaling_filter": "bilinear"
+  }
+}
