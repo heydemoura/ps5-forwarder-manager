@@ -88,4 +88,50 @@ Response get(const std::string &url, const std::string &bearer, long timeout_ms)
     return response;
 }
 
+Response post_file(const std::string &url, const std::string &field, const std::string &filename,
+                   const std::vector<unsigned char> &data, long timeout_ms)
+{
+    global_init();
+    Response response;
+    CURL *easy = curl_easy_init();
+    if (easy == nullptr)
+    {
+        response.error = "curl_easy_init failed";
+        return response;
+    }
+    console_curl_setup(easy);
+    curl_easy_setopt(easy, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(easy, CURLOPT_PROTOCOLS_STR, "https");
+    curl_easy_setopt(easy, CURLOPT_REDIR_PROTOCOLS_STR, "https");
+    curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT_MS, 8000L);
+    curl_easy_setopt(easy, CURLOPT_TIMEOUT_MS, timeout_ms);
+    curl_easy_setopt(easy, CURLOPT_USERAGENT, "ps5fwdgen/1.0");
+    curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, on_body);
+    curl_easy_setopt(easy, CURLOPT_WRITEDATA, &response.body);
+
+    curl_mime *mime = curl_mime_init(easy);
+    curl_mimepart *part = curl_mime_addpart(mime);
+    curl_mime_name(part, field.c_str());
+    curl_mime_filename(part, filename.c_str());
+    curl_mime_data(part, reinterpret_cast<const char *>(data.data()), data.size());
+    curl_easy_setopt(easy, CURLOPT_MIMEPOST, mime);
+
+    char error_buffer[CURL_ERROR_SIZE] = {};
+    curl_easy_setopt(easy, CURLOPT_ERRORBUFFER, error_buffer);
+
+    const CURLcode code = curl_easy_perform(easy);
+    response.curl_code = static_cast<int>(code);
+    if (code == CURLE_OK)
+        curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &response.status);
+    else
+    {
+        response.status = 0;
+        response.error = error_buffer[0] != '\0' ? error_buffer : curl_easy_strerror(code);
+    }
+    curl_mime_free(mime);
+    curl_easy_cleanup(easy);
+    return response;
+}
+
 } // namespace net

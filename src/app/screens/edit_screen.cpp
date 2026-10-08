@@ -12,7 +12,12 @@
 #include "ui/components/form.hpp"
 #include "ui/components/input_prompt.hpp"
 #include "ui/components/toast.hpp"
+#include "net/http.hpp"
 #include "ui/fonts.hpp"
+
+#include <atomic>
+#include <mutex>
+#include <pthread.h>
 
 #include <cstdio>
 #include <memory>
@@ -81,6 +86,11 @@ class EditScreen final : public Screen
         form_.set_active(true);
         build(context);
         prompt_.keyboard.style.bindings = hui::ui::KeyboardBindings::standard();
+    }
+
+    ~EditScreen() override
+    {
+        join_convert();
     }
 
     void restyle(Context &context) override
@@ -195,6 +205,12 @@ class EditScreen final : public Screen
     void update(Context &context, const hui::InputFrame &input, float dt,
                 hui::ui::Feedback &feedback) override
     {
+        poll_convert(context);
+        if (converting_)
+        {
+            toasts_.update(dt, feedback);
+            return;
+        }
         if (prompt_.is_open())
         {
             const hui::ui::Event event = prompt_.handle(input, feedback);
@@ -305,14 +321,26 @@ class EditScreen final : public Screen
         {
             EditScreen *self = this;
             context.push(make_file_picker_screen(
-                context, "/data", {".at9"},
+                context, "/data", {".at9", ".mp3", ".wav", ".ogg", ".flac", ".m4a"},
                 [self](const std::string &path)
                 {
                     std::vector<unsigned char> bytes;
-                    if (read_whole_file(path, bytes))
+                    if (!read_whole_file(path, bytes))
+                        return;
+                    const bool is_at9 = path.size() > 4 &&
+                                        path.compare(path.size() - 4, 4, ".at9") == 0;
+                    if (is_at9)
                     {
                         self->assets_.music_at9 = std::move(bytes);
                         self->dirty_ = true;
+                    }
+                    else
+                    {
+                        // Non-AT9 audio is converted online, as the site does.
+                        const std::size_t slash = path.find_last_of('/');
+                        self->start_convert(std::move(bytes),
+                                            slash == std::string::npos ? path
+                                                                       : path.substr(slash + 1));
                     }
                 }));
             break;
@@ -330,6 +358,86 @@ class EditScreen final : public Screen
             break;
         default:
             break;
+        }
+    }
+
+    // ---- online AT9 conversion (worker thread) ----------------------------
+    static constexpr const char *kConvertUrl = "https://ps5-forwarder.mph.am/api/convert-at9";
+
+    void start_convert(std::vector<unsigned char> audio, std::string name)
+    {
+        join_convert();
+        {
+            std::lock_guard<std::mutex> lock(convert_mutex_);
+            convert_in_ = std::move(audio);
+            convert_name_ = std::move(name);
+            convert_out_.clear();
+            convert_error_.clear();
+        }
+        convert_done_.store(false);
+        converting_ = true;
+        pthread_attr_t attr;
+        pthread_attr_init(&attr);
+        pthread_attr_setstacksize(&attr, 1u << 20);
+        if (pthread_create(&convert_thread_, &attr, &EditScreen::convert_entry, this) == 0)
+            convert_running_ = true;
+        else
+            convert_done_.store(true);
+        pthread_attr_destroy(&attr);
+    }
+
+    static void *convert_entry(void *arg)
+    {
+        auto *self = static_cast<EditScreen *>(arg);
+        std::vector<unsigned char> audio;
+        std::string name;
+        {
+            std::lock_guard<std::mutex> lock(self->convert_mutex_);
+            audio = self->convert_in_;
+            name = self->convert_name_;
+        }
+        const net::Response response = net::post_file(kConvertUrl, "file", name, audio);
+        std::lock_guard<std::mutex> lock(self->convert_mutex_);
+        const bool looks_at9 = response.body.size() > 12 && response.body[0] == 'R' &&
+                               response.body[1] == 'I' && response.body[2] == 'F' &&
+                               response.body[3] == 'F';
+        if (response.status == 200 && looks_at9)
+            self->convert_out_ = response.body;
+        else if (response.status == 0)
+            self->convert_error_ = response.error.empty() ? "conversion failed" : response.error;
+        else
+            self->convert_error_ = "conversion HTTP " + std::to_string(response.status);
+        self->convert_done_.store(true);
+        return nullptr;
+    }
+
+    void join_convert()
+    {
+        if (convert_running_)
+        {
+            pthread_join(convert_thread_, nullptr);
+            convert_running_ = false;
+        }
+    }
+
+    void poll_convert(Context &context)
+    {
+        if (!converting_ || !convert_done_.load())
+            return;
+        join_convert();
+        converting_ = false;
+        std::lock_guard<std::mutex> lock(convert_mutex_);
+        if (!convert_out_.empty())
+        {
+            assets_.music_at9 = std::move(convert_out_);
+            dirty_ = true;
+            toasts_.push(hui::ui::StatusKind::success, "Audio converted to ATRAC9");
+            build(context);
+        }
+        else
+        {
+            toasts_.push(hui::ui::StatusKind::danger, "Could not convert audio",
+                         convert_error_.empty() ? "Use a pre-made .at9 file." : convert_error_);
         }
     }
 
@@ -380,6 +488,9 @@ class EditScreen final : public Screen
         hui::ui::text(scene.list, context.fonts.display,
                       editing_ ? "Edit forwarder" : "New forwarder", 96.0f, 150.0f, 46.0f, text);
         form_.draw(scene);
+        if (converting_)
+            hui::ui::text(scene.list, context.fonts.regular, "Converting audio to ATRAC9 online...",
+                          96.0f, 960.0f, 26.0f, theme.text_muted);
         const bool modal = dialog_.visible() || prompt_.visible();
         dialog_.draw(overlay);
         prompt_.draw(overlay);
@@ -407,6 +518,17 @@ class EditScreen final : public Screen
     mutable hui::ui::Dialog dialog_;
     mutable hui::ui::InputPrompt prompt_;
     mutable hui::ui::ToastStack toasts_;
+
+    // Online AT9 conversion worker.
+    bool converting_ = false;
+    bool convert_running_ = false;
+    std::atomic<bool> convert_done_{false};
+    pthread_t convert_thread_{};
+    std::mutex convert_mutex_;
+    std::vector<unsigned char> convert_in_;
+    std::vector<unsigned char> convert_out_;
+    std::string convert_name_;
+    std::string convert_error_;
 };
 
 } // namespace

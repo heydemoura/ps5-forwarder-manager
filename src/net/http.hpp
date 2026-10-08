@@ -28,4 +28,10 @@ struct Response
 // "Authorization: Bearer <bearer>". Follows redirects (https only).
 Response get(const std::string &url, const std::string &bearer = {}, long timeout_ms = 20000);
 
+// A multipart/form-data POST of one file field. field is the form field name,
+// filename the upload filename, data the file bytes. For the forwarder site's
+// /api/convert-at9 endpoint. Blocking; worker thread only.
+Response post_file(const std::string &url, const std::string &field, const std::string &filename,
+                   const std::vector<unsigned char> &data, long timeout_ms = 60000);
+
 } // namespace net

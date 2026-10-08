@@ -8,6 +8,8 @@
 // asked for, draw, present.
 
 #include "app/app.hpp"
+#include "app/dev_selftest.hpp"
+#include "app/settings.hpp"
 #include "audio/cues.hpp"
 #include "audio/mixer.hpp"
 #include "core/frame_stats.hpp"
@@ -104,6 +106,13 @@ int main()
     paths::refresh();
     sys::log("[FWD] app root after elevation: %s", paths::app_root().c_str());
     const std::string assets = paths::assets();
+
+    // Dev-only: exercise the real write path on hardware when triggered.
+    {
+        const fwd::Settings dev_settings =
+            fwd::Settings::load(std::string(kDataRoot) + "/settings.txt");
+        fwd::run_dev_selftest(dev_settings.forwarders_root, assets + "/forwarder-template");
+    }
 
     ps5::Display display;
     if (!display.open(1920, 1080))
