@@ -28,8 +28,19 @@ a jailbroken console the owner develops on for personal use.
   launch; without it the app only shows a notice.
 - [ShadowMountPlus](https://github.com/drakmor/ShadowMountPlus) to register the
   generated tiles.
-- [ps5-app-launcher](https://github.com/MartinPham/ps5-app-launcher) loaded, so
-  the forwarder tiles can start their targets.
+
+No separate launcher payload is needed. A forwarder tile cannot start another
+app itself, so it asks a resident payload on `127.0.0.1:10199` to do it.
+Forwarder Manager ships its own open-source launcher (`launcher/fwd_launcher.c`,
+built into `assets/launcher/fwd-launcher.elf`) and sends it to `elfldr` when it
+starts and nothing is serving that port. It speaks the same request format as
+the forwarder `eboot.bin` (documented at the top of the source), logs to
+`/data/forwarder-manager/launcher.log`, and stays resident until the console
+restarts. If another launcher, such as ps5-app-launcher, is already running, it
+is left alone and serves the tiles instead. Settings shows which is in use.
+
+Forwarders only work once Forwarder Manager has been opened since the console
+started, unless another launcher is autoloaded.
 
 ## Building
 

@@ -23,6 +23,7 @@
 #include "net/http.hpp"
 #include "platform/app_paths.hpp"
 #include "platform/elevation.hpp"
+#include "platform/launcher_inject.hpp"
 #include "platform/ps5/audio_out.hpp"
 #include "platform/ps5/display_egl.hpp"
 #include "platform/ps5/pad.hpp"
@@ -110,6 +111,9 @@ int main()
     // The process root may have changed: find the app's files again.
     paths::refresh();
     sys::log("[FWD] app root after elevation: %s", paths::app_root().c_str());
+    // Forwarder tiles need a launcher payload; start the built-in one if
+    // nothing serves them yet (see platform/launcher_inject.hpp).
+    launcher::ensure_running(paths::assets() + "/launcher/fwd-launcher.elf");
     const std::string assets = paths::assets();
 
     // Dev-only: exercise the real write path on hardware when triggered.

@@ -6,6 +6,7 @@
 // (a GitHub secret in CI), so it is not editable here. The theme is fixed to
 // match the home screen's design language, so there is no theme option.
 
+#include "platform/launcher_inject.hpp"
 #include "app/screens/settings_screen.hpp"
 
 #include "app/context.hpp"
@@ -148,6 +149,12 @@ class SettingsScreen final : public Screen
         hui::ui::text(scene.list, context.fonts.regular,
                       "SteamGridDB uses a key built into the app.", 96.0f, 206.0f, 24.0f,
                       white.with_alpha(0.55f));
+        // Which launcher serves the forwarder tiles (platform/launcher_inject).
+        const launcher::State state = launcher::state();
+        const bool bad = state == launcher::State::no_elfldr || state == launcher::State::failed;
+        hui::ui::text(scene.list, context.fonts.regular, launcher::describe(state), 1824.0f,
+                      206.0f, 24.0f,
+                      bad ? context.theme.warning : white.with_alpha(0.55f), hui::gfx::Align::right);
         form_.draw(scene);
         const bool modal = prompt_.visible();
         prompt_.draw(overlay);

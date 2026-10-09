@@ -83,6 +83,21 @@ RUNTIME_INPUTS := tools/rebuild-libc.sh tools/build-host-tools.sh tools/ninja-bu
 	$(wildcard tooling/native/runtime/*.txt)
 HOST_UNIT_TEST := build/tests/unit_tests
 
+# The forwarder launcher payload (launcher/), built with the payload SDK and
+# shipped in the app's assets; Forwarder Manager sends it to elfldr when no
+# launcher is serving forwarders yet. Built objects are not committed.
+PAYLOAD_SDK := $(CURDIR)/.deps/native/ps5-payload-sdk
+LAUNCHER_ELF := assets/launcher/fwd-launcher.elf
+
+$(LAUNCHER_ELF): launcher/fwd_launcher.c
+	@printf '%s\n' '==> [launcher] Building the forwarder launcher payload'
+	@mkdir -p $(dir $@)
+	@$(PAYLOAD_SDK)/bin/prospero-clang -Wall -Wextra -Werror -O2 -o $@ $< \
+		$(PAYLOAD_SDK)/target/lib/crt1.o -lSceSystemService -lSceUserService
+
+.PHONY: launcher
+launcher: $(LAUNCHER_ELF)
+
 .PHONY: opengl
 opengl:
 	@printf '%s\n' '==> [opengl] Preparing the ps5-opengl SDK link group'
@@ -183,7 +198,7 @@ $(RUNTIME): $(RUNTIME_INPUTS)
 	@printf '%s\n' '==> [libc] Generating the missing or outdated runtime'
 	@bash tools/rebuild-libc.sh
 
-app: $(RUNTIME) opengl
+app: $(RUNTIME) opengl $(LAUNCHER_ELF)
 	@printf '%s\n' '==> [app] Compiling, linking, signing, and assembling the app folder'
 	@bash tools/build.sh Folder
 
