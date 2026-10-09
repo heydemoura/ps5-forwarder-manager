@@ -32,7 +32,7 @@ override APP_STATIC_ARCHIVES := $(strip .deps/ps5-opengl/libps5opengl-group.a $(
 override APP_IMPORT_STUBS := $(strip $(OPENGL_SDK)/lib/libSceAgc.so \
 	$(OPENGL_SDK)/lib/libSceAgcDriver.so $(APP_IMPORT_STUBS))
 override APP_WRAP_SYMBOLS := $(strip sceSystemServiceHideSplashScreen \
-	malloc calloc realloc free posix_memalign malloc_usable_size $(APP_WRAP_SYMBOLS))
+	malloc calloc realloc free posix_memalign malloc_usable_size fcntl $(APP_WRAP_SYMBOLS))
 
 # SteamGridDB API key: taken from the environment (an env var locally via .env,
 # or the GitHub Actions secret in CI), never committed. When set, it is baked
@@ -45,6 +45,8 @@ override APP_DEFINITIONS := $(strip STEAMGRIDDB_API_KEY=$(STEAMGRIDDB_API_KEY) $
 endif
 export STEAMGRIDDB_API_KEY
 PACBREW_PACKAGES ?=
+# SteamGridDB and the online AT9 conversion use libcurl.
+override PACBREW_PACKAGES := $(strip libcurl $(filter-out libcurl,$(PACBREW_PACKAGES)))
 PACBREW_INCLUDE_PATHS ?=
 PACBREW_STATIC_ARCHIVES ?=
 PS5_HOST ?=
@@ -234,7 +236,7 @@ packages: $(RUNTIME) opengl
 # The example titles are separate apps: they get none of this app's build
 # settings (its OpenGL link group, runtime wrappers and include paths).
 EXAMPLE_ENV := APP_DEFINITIONS= APP_INCLUDE_PATHS= APP_STATIC_ARCHIVES= APP_IMPORT_STUBS= \
-	APP_WRAP_SYMBOLS= APP_RUNTIME_MODULES= APP_ROOT_FILES=
+	APP_WRAP_SYMBOLS= APP_RUNTIME_MODULES= APP_ROOT_FILES= PACBREW_PACKAGES=
 
 sandbox-elevation-example: $(RUNTIME)
 	@printf '%s\n' '==> [sandbox-elevation] Building the embedded upstream-Lapy proof folder and ZIP'
