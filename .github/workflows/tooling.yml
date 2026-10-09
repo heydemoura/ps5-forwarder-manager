@@ -175,6 +175,12 @@ jobs:
       contents: write
 
     steps:
+      - name: Check out the release notes
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: docs/release-notes
+          path: source
+
       - name: Download verified build
         env:
           GH_TOKEN: ${{ github.token }}
@@ -217,6 +223,13 @@ jobs:
           assets=("release/$FOLDER_ZIP" "release/$CHECKSUM")
           folder_zip_name="${FOLDER_ZIP##*/}"
           checksum_name="${CHECKSUM##*/}"
+          # The catalog shows the release body as the app's release notes.
+          notes_file="source/docs/release-notes/$GITHUB_REF_NAME.md"
+          if [[ -f $notes_file ]]; then
+            notes=(--notes-file "$notes_file")
+          else
+            notes=(--generate-notes)
+          fi
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             while IFS= read -r old_asset; do
               if [[ $old_asset != "$folder_zip_name" && $old_asset != "$checksum_name" ]]; then
@@ -224,10 +237,13 @@ jobs:
               fi
             done < <(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
             gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+            if [[ -f $notes_file ]]; then
+              gh release edit "$GITHUB_REF_NAME" --notes-file "$notes_file" --repo "$GITHUB_REPOSITORY"
+            fi
           else
             gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
               --repo "$GITHUB_REPOSITORY" \
               --verify-tag \
-              --generate-notes \
+              "${notes[@]}" \
               --title "$GITHUB_REF_NAME"
           fi

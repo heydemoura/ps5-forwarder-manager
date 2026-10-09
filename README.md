@@ -3,8 +3,18 @@
 A native PlayStation 5 homebrew app that creates and edits home-screen
 **forwarders**: tiles that launch another installed app (an emulator) with
 launch arguments such as `--rom <file>`. It is a native port of the web tool
-[ps5-forwarder.mph.am](https://ps5-forwarder.mph.am/) by Martin Pham, built for
-a jailbroken console the owner develops on for personal use.
+[ps5-forwarder.mph.am](https://ps5-forwarder.mph.am/) by Martin Pham, rewritten
+from scratch to run on the console itself.
+
+![Home: forwarders by target app](docs/screenshots/home.jpg)
+
+| | |
+| --- | --- |
+| ![Create a forwarder](docs/screenshots/create.jpg) | ![Edit a forwarder](docs/screenshots/edit.jpg) |
+| ![Choose where the icon comes from](docs/screenshots/icon-source.jpg) | ![SteamGridDB icon results](docs/screenshots/steamgriddb.jpg) |
+| ![An icon's details before using it](docs/screenshots/steamgriddb-details.jpg) | |
+
+The screenshots use demo forwarders for freeware and open-source games.
 
 ## What it does
 
@@ -14,11 +24,24 @@ a jailbroken console the owner develops on for personal use.
 - Picks the ROM (and optional `.at9` music) with a built-in file browser over
   the console filesystem.
 - Fetches tile icons and backgrounds from [SteamGridDB](https://www.steamgriddb.com/)
-  (with your own API key) or from any image file, encoding them to the exact
+  or from any image file, encoding them to the exact
   formats the PS5 shell expects: a 512x512 PNG icon and 3840x2160 BC7 DDS
   backgrounds.
 - Writes a complete tile folder (shared `eboot.bin` + `libc.prx`,
   `forwarder.json`, `sce_sys/param.json`, art) that ShadowMountPlus registers.
+
+## Install
+
+1. Download `PPSA99930.zip` from the latest
+   [release](https://github.com/heydemoura/ps5-forwarder-manager/releases)
+   (`SHA256SUMS` next to it has its checksum).
+2. Unzip it and copy the `PPSA99930` folder to `/data/homebrew/` on the
+   console, for example over FTP.
+3. Let ShadowMountPlus register it, then start **Forwarder Manager** from the
+   home screen.
+
+To update, replace the folder with the one from a newer release. Your
+forwarders live in their own folders and are kept.
 
 ## Requirements on the console
 
@@ -61,8 +84,24 @@ The forwarder template and launcher come prebuilt from the format's
 `template/` folder. `make standard-template` rebuilds them from the format's
 sources inside the submodule; commit the result there.
 
-The build needs `PACBREW_PACKAGES=libcurl` (for the SteamGridDB HTTPS client,
-since an elevated app cannot use `sceHttp`). See `.env.example`.
+The build always links PacBrew's libcurl (for the SteamGridDB HTTPS client,
+since an elevated app cannot use `sceHttp`). SteamGridDB search needs an API
+key built into the app: set `STEAMGRIDDB_API_KEY` in `.env` (see
+`.env.example`) or the environment. Release builds get it from the
+repository's `STEAMGRIDDB_API_KEY` Actions secret. Without a key the app
+still works, with image files only.
+
+## Releases
+
+Versions follow the PlayStation `contentVersion` format, `NN.NNN.NNN`
+(`00.001.000` is the first release). To cut one, raise `contentVersion` in
+`sce_sys/param.json`, add `docs/release-notes/<version>.md`, commit both, then
+push a tag named exactly the version (no `v`). CI builds the app and publishes
+a GitHub release with `PPSA99930.zip`, `SHA256SUMS` and those notes.
+`docs/catalog/PPSA99930.json` is the record for the
+[PS5 Homebrew Catalog](https://github.com/blackbearreloaded/ps5-homebrew-catalog);
+update its `version`, `artifact_url`, `sha256` and `icon_url` for each release
+(the catalog's daily job can also propose the update).
 
 ## Layout
 
@@ -82,10 +121,10 @@ Because the build host has no controller, the app carries a dev-only harness
 that is inert unless trigger files exist under `/data/ps5fwdgen-dev/`:
 
 - `input.txt` - a line-per-command script (`up`/`down`/`cross`/`type:<text>`/
-  `wait N`/`quit`) fed as synthetic input to the real screens, consumed once.
+  `wait N`/`shot`/`quit`) fed as synthetic input to the real screens, consumed
+  once. `shot` saves a 1920x1080 PNG to the app's `download0`.
 - `selftest.txt` - runs the real `write_forwarder()` once with test values.
 
-These are read only when present and never affect normal use. SteamGridDB needs
-your own API key, entered in Settings.
+These are read only when present and never affect normal use.
 
 Licensed GPL-3.0-or-later. See `THIRD_PARTY_NOTICES.md`.
