@@ -45,4 +45,10 @@ WriteResult write_forwarder(const std::string &root, const std::string &template
 // Removes a forwarder folder and everything in it.
 bool remove_forwarder(const std::string &root, const std::string &title_id);
 
+// Gives every forwarder under root the forwarder program in template_root
+// (eboot.bin), so tiles made with an older one, or with the website's, can
+// start the launcher themselves. Only folders with a forwarder.json whose
+// eboot.bin is a forwarder program are touched. Returns how many changed.
+int upgrade_forwarders(const std::string &root, const std::string &template_root);
+
 } // namespace fwd

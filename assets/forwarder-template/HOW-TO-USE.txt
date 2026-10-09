@@ -6,21 +6,13 @@ optional launch arguments. To make a tile, copy the folder and edit a few files.
 rebuilt: every forwarder uses the same eboot.bin.
 
 A forwarder tile is an ordinary app, and an app may not start another app on the PS5. So the
-launch is done by ps5-app-launcher: a small payload you load once, with the same payload loader
-you use for ShadowMountPlus and etaHEN. The tile just asks it to launch.
+launch is done by a small resident launcher payload on 127.0.0.1:10199; the tile just asks it to
+launch. This eboot.bin carries that launcher (open source, launcher/fwd_launcher.c in the Forwarder
+Manager repository): when none is running, the tile sends it to elfldr itself. Nothing has to be
+loaded beforehand except elfldr, and a launcher already running (ps5-app-launcher, say) is used
+as it is.
 
-Needs: ps5-app-launcher loaded (below), and ShadowMountPlus to register the tile.
-
-
-Load the launcher payload (once)
---------------------------------
-
-Download ps5-app-launcher.elf from https://github.com/MartinPham/ps5-app-launcher/releases
-and load it the same way you load ShadowMountPlus or etaHEN (your payload loader, or your autoload
-setup so it comes back after a reboot). It listens on 127.0.0.1 and launches the title each tile
-asks for. Load it once; it serves every forwarder.
-
-It writes /data/ps5-app-launcher/launcher.log, so you can check it is running.
+Needs: elfldr running, and ShadowMountPlus to register the tile.
 
 
 Make a forwarder
@@ -69,9 +61,9 @@ Change a forwarder later
 If something goes wrong
 -----------------------
 
-- "Forwarder: ps5-app-launcher is not running": load ps5-app-launcher.elf (above).
+- "Forwarder: no launcher is running, and elfldr is not reachable to start one": load elfldr.
 - "Forwarder: could not start <TARGET> (...)": the daemon reached the launch but the console
-  refused it; the codes are in /data/ps5-app-launcher/launcher.log.
+  refused it; the codes are in /data/forwarder-manager/launcher.log.
 - "Forwarder: target is required": forwarder.json is missing the "target" field.
 - Logs: the tile writes /data/ps5-forwarder/<TITLE_ID>.log; the launcher writes
   /data/ps5-app-launcher/launcher.log.

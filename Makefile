@@ -98,6 +98,28 @@ $(LAUNCHER_ELF): launcher/fwd_launcher.c
 .PHONY: launcher
 launcher: $(LAUNCHER_ELF)
 
+# The forwarder tile program (forwarder/), which carries the launcher payload
+# and starts it through elfldr when no launcher is running. Built with the
+# same boilerplate as the app (as its own small app, PPSA99100), then copied
+# into the forwarder template every new or upgraded forwarder is made from.
+FORWARDER_PAYLOAD_INC := forwarder/src/launcher_payload.inc
+FORWARDER_EBOOT := assets/forwarder-template/eboot.bin
+
+$(FORWARDER_PAYLOAD_INC): $(LAUNCHER_ELF) forwarder/embed_payload.py
+	@python3 forwarder/embed_payload.py $(LAUNCHER_ELF) $@
+
+$(FORWARDER_EBOOT): forwarder/src/forwarder.c forwarder/param.json $(FORWARDER_PAYLOAD_INC) $(RUNTIME)
+	@printf '%s\n' '==> [forwarder] Building the forwarder tile program'
+	@APP_SOURCE_DIR=forwarder/src APP_PARAM=forwarder/param.json APP_SCE_SYS=sce_sys \
+		APP_ASSETS= APP_DEFINITIONS= APP_INCLUDE_PATHS= APP_STATIC_ARCHIVES= \
+		APP_IMPORT_STUBS= APP_WRAP_SYMBOLS= APP_RUNTIME_MODULES= APP_ROOT_FILES= \
+		APP_LAPY_HELPER=0 bash tools/build.sh Folder >/dev/null
+	@cp dist/PPSA99100/eboot.bin $@
+	@cp dist/PPSA99100/sce_module/libc.prx assets/forwarder-template/sce_module/libc.prx
+
+.PHONY: forwarder
+forwarder: $(FORWARDER_EBOOT)
+
 .PHONY: opengl
 opengl:
 	@printf '%s\n' '==> [opengl] Preparing the ps5-opengl SDK link group'
@@ -198,7 +220,7 @@ $(RUNTIME): $(RUNTIME_INPUTS)
 	@printf '%s\n' '==> [libc] Generating the missing or outdated runtime'
 	@bash tools/rebuild-libc.sh
 
-app: $(RUNTIME) opengl $(LAUNCHER_ELF)
+app: $(RUNTIME) opengl $(LAUNCHER_ELF) $(FORWARDER_EBOOT)
 	@printf '%s\n' '==> [app] Compiling, linking, signing, and assembling the app folder'
 	@bash tools/build.sh Folder
 

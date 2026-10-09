@@ -10,6 +10,7 @@
 #include "app/tile.hpp"
 #include "gfx/renderer.hpp"
 #include "platform/app_paths.hpp"
+#include "fwd/store.hpp"
 #include "platform/ps5/system.hpp"
 #include "ui/components/component.hpp"
 #include "ui/glyphs.hpp"
@@ -63,6 +64,13 @@ App::App(const hui::ui::Fonts &fonts, hui::gfx::Renderer &renderer, std::string 
     context_->data_root = std::move(data_root);
     context_->app_template_root = paths::assets() + "/forwarder-template";
     context_->settings = Settings::load(context_->data_root + "/settings.txt");
+    if (elevated)
+    {
+        // Tiles made before the forwarder could start the launcher itself.
+        const int upgraded =
+            upgrade_forwarders(context_->settings.forwarders_root, context_->app_template_root);
+        hui::sys::log("[FWD] forwarders upgraded: %d", upgraded);
+    }
     // One fixed dark theme for the whole app (the Aurora design language);
     // the SteamGridDB key and theme are not user-editable.
     context_->theme = fixed_theme();

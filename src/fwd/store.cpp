@@ -4,6 +4,8 @@
 
 #include "fwd/store.hpp"
 
+#include "platform/ps5/system.hpp"
+
 #include "core/json.hpp"
 #include "core/save_file.hpp"
 
@@ -223,6 +225,58 @@ std::vector<Forwarder> scan_forwarders(const std::string &root)
                   return a.title_id < b.title_id;
               });
     return forwarders;
+}
+
+int upgrade_forwarders(const std::string &root, const std::string &template_root)
+{
+    // The forwarder program every tile should run.
+    std::vector<unsigned char> current;
+    if (!read_binary(template_root + "/eboot.bin", current) || current.empty())
+        return 0;
+    // Every forwarder program logs with one of these tags (this one and the
+    // website's current one with the first, its older builds with the
+    // second); a real app's eboot.bin carries neither.
+    static const char *const kMarkers[] = {"[ps5-forwarder %s]", "[prospero-forwarder %s]"};
+
+    int upgraded = 0;
+    DIR *dir = ::opendir(root.c_str());
+    if (dir == nullptr)
+        return 0;
+    struct dirent *entry;
+    while ((entry = ::readdir(dir)) != nullptr)
+    {
+        const std::string name = entry->d_name;
+        if (name.empty() || name[0] == '.')
+            continue;
+        const std::string path = root + "/" + name;
+        if (!is_dir(path) || !exists(path + "/forwarder.json"))
+            continue;
+        std::vector<unsigned char> eboot;
+        if (!read_binary(path + "/eboot.bin", eboot))
+            continue;
+        hui::sys::log("[FWD] upgrade check %s: eboot %zu bytes, %s", name.c_str(), eboot.size(),
+                      eboot == current ? "current" : "older");
+        if (eboot == current)
+            continue;
+        bool forwarder_program = false;
+        for (const char *marker : kMarkers)
+        {
+            const char *end = marker + std::strlen(marker);
+            if (std::search(eboot.begin(), eboot.end(), marker, end) != eboot.end())
+                forwarder_program = true;
+        }
+        if (!forwarder_program)
+            continue; // not a forwarder program: leave it alone
+        // Written beside, then renamed over, so a tile is never half written.
+        const std::string staged = path + "/eboot.bin.new";
+        if (write_binary(staged, current.data(), current.size()) &&
+            ::rename(staged.c_str(), (path + "/eboot.bin").c_str()) == 0)
+            ++upgraded;
+        else
+            (void)::unlink(staged.c_str());
+    }
+    ::closedir(dir);
+    return upgraded;
 }
 
 WriteResult write_forwarder(const std::string &root, const std::string &template_root,
