@@ -303,6 +303,11 @@ class EditScreen final : public Screen
             context.pop();
             return;
         }
+        if (input.is_pressed(hui::Action::north)) // Triangle: save from anywhere in the form
+        {
+            save(context, feedback);
+            return;
+        }
 
         const hui::ui::Event event = form_.handle(input, feedback);
         if (event == hui::ui::Event::changed && form_.changed_id() == RowTarget)
@@ -711,7 +716,9 @@ class EditScreen final : public Screen
 
         const float bob =
             context.settings.reduced_motion ? 0.0f : std::sin(clock_ * 0.8f) * 6.0f;
-        const Rect art{1316.0f + slide * 1.6f, 132.0f + bob, 440.0f, 440.0f};
+        // About a fifth smaller than the concept's 440 so it clears the sheet
+        // below; it keeps the concept's right edge.
+        const Rect art{1404.0f + slide * 1.6f, 132.0f + bob, 352.0f, 352.0f};
         list.glow(art.inset(30.0f), 60.0f, 90.0f, tint.with_alpha(0.3f));
         list.shadow({art.x, art.y + 26.0f, art.w, art.h}, 36.0f, 46.0f, Color::rgb(0x000000, 0.55f));
         if (icon_tex_ != 0)
@@ -861,11 +868,17 @@ class EditScreen final : public Screen
 
     std::span<const hui::ui::Hint> hints() const override
     {
-        static const hui::ui::Hint kHints[] = {
+        static const hui::ui::Hint kEdit[] = {
             {hui::ui::Button::cross, "Select"},
+            {hui::ui::Button::triangle, "Save"},
             {hui::ui::Button::circle, "Back"},
         };
-        return kHints;
+        static const hui::ui::Hint kNew[] = {
+            {hui::ui::Button::cross, "Select"},
+            {hui::ui::Button::triangle, "Generate"},
+            {hui::ui::Button::circle, "Back"},
+        };
+        return editing_ ? std::span<const hui::ui::Hint>(kEdit) : std::span<const hui::ui::Hint>(kNew);
     }
 
   private:

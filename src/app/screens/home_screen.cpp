@@ -18,7 +18,6 @@
 #include "gfx/gl_batch.hpp"
 #include "gfx/backdrop_spec.hpp"
 #include "gfx/renderer.hpp"
-#include "ui/components/dialog.hpp"
 #include "ui/fonts.hpp"
 #include "ui/glyphs.hpp"
 #include "ui/motion.hpp"
@@ -50,7 +49,6 @@ constexpr float kCardGap = 28.0f;
 constexpr float kCardGrow = 1.18f;
 constexpr float kShelfY = 724.0f;
 constexpr float kHeroTextWidth = 1180.0f;
-constexpr int kActions = 3;
 
 extern "C" void glDeleteTextures(int n, const unsigned int *textures);
 
@@ -69,7 +67,6 @@ class HomeScreen final : public Screen
 
     void restyle(Context &context) override
     {
-        dialog_.style.theme = context.theme;
     }
 
     void release_textures()
@@ -219,31 +216,7 @@ class HomeScreen final : public Screen
             return;
         }
 
-        if (dialog_.is_open())
-        {
-            const hui::ui::Event event = dialog_.handle(input, feedback);
-            if (event == hui::ui::Event::activated && dialog_.choice() == 1 && pending_delete_ >= 1)
-            {
-                const Forwarder &target = forwarder_at(pending_delete_);
-                remove_forwarder(context.settings.forwarders_root, target.title_id);
-                pending_delete_ = -1;
-                sheet_open_ = false;
-                rescan(context);
-            }
-            else if (event == hui::ui::Event::cancelled)
-            {
-                pending_delete_ = -1;
-            }
-            dialog_.update(dt);
-        }
-        else if (sheet_open_)
-        {
-            update_sheet(context, input, feedback);
-        }
-        else
-        {
-            update_shelf(context, input, feedback);
-        }
+        update_shelf(context, input, feedback);
 
         if (focus_ != shown_)
         {
@@ -262,10 +235,6 @@ class HomeScreen final : public Screen
         ring_.target(card_rect(focus_, true));
         ring_.update(dt, 20.0f);
         nudge_.update(dt, 9.0f);
-        sheet_.target = sheet_open_ ? 1.0f : 0.0f;
-        sheet_.update(dt, context.settings.reduced_motion ? 40.0f : 13.0f);
-        action_position_.target = static_cast<float>(action_);
-        action_position_.update(dt, 22.0f);
     }
 
     void update_shelf(Context &context, const hui::InputFrame &input, hui::ui::Feedback &feedback)
@@ -304,10 +273,9 @@ class HomeScreen final : public Screen
             }
             else
             {
-                sheet_open_ = true;
-                action_ = 0;
-                action_position_.snap(0.0f);
-                feedback.play(hui::audio::Cue::open);
+                // Straight to the edit screen, which also offers Delete.
+                feedback.play(hui::audio::Cue::select);
+                context.push(make_edit_screen(context, forwarder_at(focus_), true));
             }
         }
         if (input.is_pressed(hui::Action::north)) // Triangle: new
@@ -317,51 +285,6 @@ class HomeScreen final : public Screen
         }
         if (input.is_pressed(hui::Action::menu)) // Options: settings
             context.push(make_settings_screen(context));
-    }
-
-    void update_sheet(Context &context, const hui::InputFrame &input, hui::ui::Feedback &feedback)
-    {
-        if (input.nav == hui::Direction::up || input.nav == hui::Direction::down)
-        {
-            const int next =
-                std::clamp(action_ + (input.nav == hui::Direction::down ? 1 : -1), 0, kActions - 1);
-            if (next != action_)
-            {
-                action_ = next;
-                feedback.play(hui::audio::Cue::focus, 1.0f, 0.35f);
-            }
-        }
-        if (input.is_pressed(hui::Action::back))
-        {
-            feedback.play(hui::audio::Cue::back);
-            sheet_open_ = false;
-        }
-        if (input.is_pressed(hui::Action::confirm))
-        {
-            if (action_ == 0) // Edit
-            {
-                feedback.play(hui::audio::Cue::select);
-                sheet_open_ = false;
-                context.push(make_edit_screen(context, forwarder_at(focus_), true));
-            }
-            else if (action_ == 1) // Delete
-            {
-                pending_delete_ = focus_;
-                const Forwarder &t = forwarder_at(focus_);
-                dialog_.open({hui::ui::StatusKind::danger, "Delete this forwarder?",
-                              t.display_name + "\n" + t.title_id +
-                                  "\nThis removes the tile folder from the console.",
-                              {{"Cancel", hui::ui::ButtonKind::secondary, false},
-                               {"Delete", hui::ui::ButtonKind::primary, true}},
-                              0},
-                             feedback);
-            }
-            else // Close
-            {
-                feedback.play(hui::audio::Cue::modal_close);
-                sheet_open_ = false;
-            }
-        }
     }
 
     // ---- drawing -----------------------------------------------------------
@@ -400,29 +323,12 @@ class HomeScreen final : public Screen
         if (!context.elevated)
             return draw_not_elevated(context, scene, overlay);
 
+        (void)overlay;
         hui::gfx::DrawList &list = scene.list;
-        const float back = sheet_.value;
-        list.push_transform(1.0f - 0.035f * back, 960, 540, 0, 0);
         draw_header(context, list);
         draw_hero(context, list);
         draw_shelf(context, list);
-        list.pop_transform();
-        if (back > 0.01f)
-            list.rounded_rect({0, 0, hui::gfx::kVirtualWidth, hui::gfx::kVirtualHeight}, 0,
-                              Color::rgb(0x05070f, 0.45f * back));
-
-        bool glass = false;
-        if (back > 0.01f)
-        {
-            glass = true;
-            draw_sheet(context, overlay.list, overlay.glass);
-        }
-        if (dialog_.visible())
-        {
-            glass = true;
-            dialog_.draw(overlay);
-        }
-        return glass;
+        return false;
     }
 
     void backdrop(Context &context, hui::gfx::BackdropSpec &spec) const override
@@ -542,7 +448,7 @@ class HomeScreen final : public Screen
         if (f.exit_after_game)
             hui::ui::text(list, fonts.regular, "Exits when you quit the game", x, 452, 22,
                           kWhite.with_alpha(0.55f));
-        draw_cta(list, fonts, x, "Options", accent);
+        draw_cta(list, fonts, x, "Edit", accent);
         list.pop_opacity();
     }
 
@@ -602,70 +508,11 @@ class HomeScreen final : public Screen
         list.pop_opacity();
 
         // Hints along the bottom.
-        const hui::ui::Hint hints[] = {{hui::ui::Button::cross, is_create(focus_) ? "Create" : "Options"},
+        const hui::ui::Hint hints[] = {{hui::ui::Button::cross, is_create(focus_) ? "Create" : "Edit"},
                                        {hui::ui::Button::triangle, "New"},
                                        {hui::ui::Button::options, "Settings"}};
-        list.push_opacity(in * (1.0f - sheet_.value));
+        list.push_opacity(in);
         hui::ui::draw_hints(list, fonts, hui::ui::GlyphStyle::dark(), hints, 3, 1824, true);
-        list.pop_opacity();
-    }
-
-    void draw_sheet(Context &context, hui::gfx::DrawList &list, std::uint32_t glass) const
-    {
-        if (is_create(focus_))
-            return;
-        const hui::ui::Fonts &fonts = context.fonts;
-        const Forwarder &f = forwarder_at(focus_);
-        const float t = sheet_.value;
-        constexpr float kHeight = 440.0f;
-        const Rect sheet{120, hui::gfx::kVirtualHeight - kHeight * t - 40.0f * t + 60.0f * (1 - t),
-                         1680, kHeight};
-        list.push_opacity(hui::tween::clamp01(t * 1.4f));
-        list.shadow({sheet.x, sheet.y + 20, sheet.w, sheet.h}, 44, 60, Color::rgb(0x000000, 0.5f));
-        list.glass(glass, sheet, 44, kWhite);
-        list.rounded_rect(sheet, 44, Color::rgb(0x0b0d16, 0.62f));
-        list.bordered_rect(sheet, 44, Color::rgb(0x000000, 0.0f), 1.5f, kWhite.with_alpha(0.22f));
-
-        const Rect art{sheet.x + 56, sheet.y + 56, 300, 300};
-        draw_tile_art(list, art, focus_, 1.0f, 28.0f);
-        const float x = art.x + art.w + 56;
-        // Text column stops short of the action buttons, so long titles and
-        // ROM names are ellipsised instead of overlapping them.
-        const float action_x = sheet.x + sheet.w - 56.0f - 420.0f;
-        const float textw = action_x - x - 36.0f;
-        const Color accent = accent_for(seed_of(focus_));
-        hui::ui::text(list, fonts.semibold, hui::ui::upper(target_display_name(f.target)), x,
-                      sheet.y + 92, 20, accent, hui::gfx::Align::left, 4.0f);
-        hui::ui::text(list, fonts.display,
-                      fonts.display.font->fit(f.display_name.empty() ? f.title_id : f.display_name,
-                                              56.0f, textw),
-                      x - 2, sheet.y + 158, 56, kWhite);
-        char meta[200];
-        (void)std::snprintf(meta, sizeof(meta), "%s  \xC2\xB7  target %s", f.title_id.c_str(),
-                            f.target.c_str());
-        hui::ui::text(list, fonts.regular, fonts.regular.font->fit(meta, 24.0f, textw), x,
-                      sheet.y + 206, 24, kWhite.with_alpha(0.78f));
-        hui::ui::text(list, fonts.regular,
-                      fonts.regular.font->fit(f.rom.empty() ? "No ROM argument" : ("ROM: " + f.rom),
-                                              24.0f, textw),
-                      x, sheet.y + 244, 24, kWhite.with_alpha(0.7f));
-
-        const char *actions[kActions] = {"Edit", "Delete", "Close"};
-        const float ax = sheet.x + sheet.w - 56 - 420;
-        const float ay = sheet.y + 76;
-        list.rounded_rect({ax, ay + action_position_.value * 84, 420, 72}, 36, kWhite);
-        for (int i = 0; i < kActions; ++i)
-        {
-            const bool focused = i == action_;
-            const float y = ay + static_cast<float>(i) * 84;
-            if (!focused)
-                list.bordered_rect({ax, y, 420, 72}, 36, kWhite.with_alpha(0.06f), 1.5f,
-                                   kWhite.with_alpha(0.18f));
-            const Color ink = i == 1 && !focused ? context.theme.danger
-                                                 : (focused ? Color::rgb(0x0b0d16)
-                                                            : kWhite.with_alpha(0.9f));
-            hui::ui::text(list, fonts.semibold, actions[i], ax + 36, y + 46, 26, ink);
-        }
         list.pop_opacity();
     }
 
@@ -712,12 +559,6 @@ class HomeScreen final : public Screen
     hui::ui::SpringRect ring_;
     hui::ui::Pulse nudge_;
     float nudge_direction_ = 0.0f;
-    bool sheet_open_ = false;
-    hui::tween::Spring sheet_;
-    int action_ = 0;
-    hui::tween::Spring action_position_;
-    mutable hui::ui::Dialog dialog_;
-    int pending_delete_ = -1;
 };
 
 } // namespace
