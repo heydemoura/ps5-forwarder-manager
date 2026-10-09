@@ -7,6 +7,7 @@
 #include "app/context.hpp"
 #include "app/screen.hpp"
 #include "app/screens/home_screen.hpp"
+#include "app/tile.hpp"
 #include "gfx/renderer.hpp"
 #include "platform/app_paths.hpp"
 #include "platform/ps5/system.hpp"
@@ -15,6 +16,7 @@
 
 #include <cstddef>
 #include <span>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -26,12 +28,16 @@ namespace
 
 constexpr float kHintsRight = 1824.0f;
 
-const hui::ui::Theme &theme_at(int index)
+// A dark, glassy theme matching the home screen's design language. Prefers a
+// known dark theme by id, else the kit default (Acrylic, also dark glass).
+hui::ui::Theme fixed_theme()
 {
-    const std::span<const hui::ui::Theme> all = hui::ui::themes();
-    if (index < 0 || static_cast<std::size_t>(index) >= all.size())
-        return hui::ui::default_theme();
-    return all[static_cast<std::size_t>(index)];
+    for (const hui::ui::Theme &theme : hui::ui::themes())
+    {
+        if (std::string_view(theme.id) == "acrylic")
+            return theme;
+    }
+    return hui::ui::default_theme();
 }
 
 } // namespace
@@ -53,7 +59,10 @@ App::App(const hui::ui::Fonts &fonts, hui::gfx::Renderer &renderer, std::string 
     context_->data_root = std::move(data_root);
     context_->app_template_root = paths::assets() + "/forwarder-template";
     context_->settings = Settings::load(context_->data_root + "/settings.txt");
-    context_->theme = theme_at(context_->settings.theme);
+    // One fixed dark theme for the whole app (the Aurora design language);
+    // the SteamGridDB key and theme are not user-editable.
+    context_->theme = fixed_theme();
+    context_->theme.backdrop = app_backdrop();
     context_->elevated = elevated;
     context_->elevation_status = elevation_status;
     frame_.glass_texture = renderer.glass_texture();
@@ -136,13 +145,6 @@ void App::update(const hui::InputFrame &input, float dt)
     clock_ += dt;
     apply_navigation();
     Context &context = *context_;
-    if (context.theme_changed)
-    {
-        context.theme = theme_at(context.settings.theme);
-        for (std::unique_ptr<Screen> &screen : stack_->screens)
-            screen->restyle(context);
-        context.theme_changed = false;
-    }
     if (!stack_->screens.empty())
         stack_->screens.back()->update(context, input, dt, feedback_);
     apply_navigation();

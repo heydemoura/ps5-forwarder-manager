@@ -56,6 +56,18 @@ hui::gfx::Color hsv(float h, float s, float v)
 
 } // namespace
 
+hui::gfx::BackdropSpec app_backdrop()
+{
+    hui::gfx::BackdropSpec spec;
+    spec.mode = hui::gfx::BackdropMode::aurora;
+    const std::array<hui::gfx::Color, 4> p = palette_for("ps5fwdgen");
+    spec.colors[0] = p[0];
+    spec.colors[1] = p[1];
+    spec.colors[2] = p[2];
+    spec.colors[3] = p[3];
+    return spec;
+}
+
 std::array<hui::gfx::Color, 4> palette_for(const std::string &seed)
 {
     const float h = hue_of(seed);

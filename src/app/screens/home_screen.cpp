@@ -19,6 +19,7 @@
 #include "gfx/backdrop_spec.hpp"
 #include "gfx/renderer.hpp"
 #include "ui/components/dialog.hpp"
+#include "ui/components/tabs.hpp"
 #include "ui/fonts.hpp"
 #include "ui/glyphs.hpp"
 #include "ui/motion.hpp"
@@ -48,6 +49,7 @@ constexpr float kCard = 200.0f;
 constexpr float kCardGap = 28.0f;
 constexpr float kCardGrow = 1.18f;
 constexpr float kShelfY = 724.0f;
+constexpr float kHeroTextWidth = 1180.0f;
 constexpr int kActions = 3;
 
 extern "C" void glDeleteTextures(int n, const unsigned int *textures);
@@ -68,6 +70,9 @@ class HomeScreen final : public Screen
     void restyle(Context &context) override
     {
         dialog_.style.theme = context.theme;
+        tabs_.style.theme = context.theme;
+        tabs_.style.kind = hui::ui::TabKind::pill;
+        tabs_.style.on_page = true;
     }
 
     void release_textures()
@@ -83,18 +88,30 @@ class HomeScreen final : public Screen
         rescan(context);
     }
 
-    // Tile 0 is "Create"; tiles 1..N are the forwarders.
+    // Tile 0 is "Create"; tiles 1..N are the forwarders visible under the
+    // active tab (visible_ holds indices into the full forwarders_ list).
     int tile_count() const
     {
-        return 1 + static_cast<int>(forwarders_.size());
+        return 1 + static_cast<int>(visible_.size());
     }
     bool is_create(int tile) const
     {
         return tile == 0;
     }
+    int source_index(int tile) const
+    {
+        return visible_[static_cast<std::size_t>(tile - 1)];
+    }
     const Forwarder &forwarder_at(int tile) const
     {
-        return forwarders_[static_cast<std::size_t>(tile - 1)];
+        return forwarders_[static_cast<std::size_t>(source_index(tile))];
+    }
+    std::uint32_t tex_of(int tile) const
+    {
+        const int i = source_index(tile);
+        return i >= 0 && i < static_cast<int>(textures_.size())
+                   ? textures_[static_cast<std::size_t>(i)]
+                   : 0;
     }
 
     void rescan(Context &context)
@@ -108,11 +125,65 @@ class HomeScreen final : public Screen
                 context.settings.forwarders_root + "/" + forwarders_[i].title_id;
             textures_[i] = load_icon_texture(context.renderer, dir);
         }
+        // Group by system (the target app): one tab per distinct target, plus
+        // "All" first.
+        systems_.clear();
+        for (const Forwarder &f : forwarders_)
+        {
+            const std::string name = target_display_name(f.target);
+            if (std::find(systems_.begin(), systems_.end(), name) == systems_.end())
+                systems_.push_back(name);
+        }
+        std::sort(systems_.begin(), systems_.end());
+        std::vector<hui::ui::TabItem> tab_items;
+        tab_items.push_back({"All", static_cast<int>(forwarders_.size()), false, 0});
+        for (const std::string &name : systems_)
+        {
+            int count = 0;
+            for (const Forwarder &f : forwarders_)
+                if (target_display_name(f.target) == name)
+                    ++count;
+            tab_items.push_back({name, count, false, 0});
+        }
+        if (active_tab_ >= static_cast<int>(tab_items.size()))
+            active_tab_ = 0;
+        tabs_.set_tabs(std::move(tab_items));
+        tabs_.set_active(active_tab_, true);
+        rebuild_visible();
         if (focus_ >= tile_count())
             focus_ = std::max(0, tile_count() - 1);
         shown_ = focus_;
         apply_palette(context, true);
         ring_.snap(card_rect(focus_, true));
+        scroll_.reveal(0.0f, 0.0f, hui::gfx::kVirtualWidth - kMargin, kMargin * 2.2f);
+    }
+
+    void rebuild_visible()
+    {
+        visible_.clear();
+        for (int i = 0; i < static_cast<int>(forwarders_.size()); ++i)
+        {
+            if (active_tab_ == 0 ||
+                target_display_name(forwarders_[static_cast<std::size_t>(i)].target) ==
+                    systems_[static_cast<std::size_t>(active_tab_ - 1)])
+                visible_.push_back(i);
+        }
+    }
+
+    void set_tab(Context &context, int tab, hui::ui::Feedback &feedback)
+    {
+        const int count = 1 + static_cast<int>(systems_.size());
+        if (count <= 1)
+            return;
+        active_tab_ = ((tab % count) + count) % count;
+        tabs_.set_active(active_tab_, false);
+        feedback.play(hui::audio::Cue::tab);
+        rebuild_visible();
+        focus_ = 0;
+        shown_ = 0;
+        apply_palette(context, true);
+        ring_.snap(card_rect(0, true));
+        scroll_.reveal(0.0f, 0.0f, hui::gfx::kVirtualWidth - kMargin, kMargin * 2.2f);
     }
 
     std::string seed_of(int tile) const
@@ -200,6 +271,7 @@ class HomeScreen final : public Screen
         scroll_.reveal(start, start + kCard * kCardGrow, hui::gfx::kVirtualWidth - kMargin,
                        kMargin * 2.2f);
         scroll_.update(dt, 12.0f);
+        tabs_.update(dt);
         ring_.target(card_rect(focus_, true));
         ring_.update(dt, 20.0f);
         nudge_.update(dt, 9.0f);
@@ -232,6 +304,10 @@ class HomeScreen final : public Screen
             feedback.play(hui::audio::Cue::error, 1.0f, 0.0f, 0.6f);
             nudge_.trigger();
         }
+        if (input.is_pressed(hui::Action::page_prev))
+            set_tab(context, active_tab_ - 1, feedback);
+        if (input.is_pressed(hui::Action::page_next))
+            set_tab(context, active_tab_ + 1, feedback);
         if (input.is_pressed(hui::Action::confirm))
         {
             if (is_create(focus_))
@@ -319,8 +395,7 @@ class HomeScreen final : public Screen
             list.rounded_rect({cx - 5, cy - s, 10, 2 * s}, 5, kWhite.with_alpha(alpha));
             return;
         }
-        const std::size_t i = static_cast<std::size_t>(tile - 1);
-        const std::uint32_t tex = i < textures_.size() ? textures_[i] : 0;
+        const std::uint32_t tex = tex_of(tile);
         if (tex != 0)
         {
             list.image(tex, rect, hui::gfx::kFullUv, kWhite.with_alpha(alpha), radius);
@@ -442,15 +517,18 @@ class HomeScreen final : public Screen
         const Forwarder &f = forwarder_at(tile);
         hui::ui::text(list, fonts.semibold, hui::ui::upper(target_display_name(f.target)), x, 236,
                       20, accent, hui::gfx::Align::left, 4.0f);
-        hui::ui::text(list, fonts.display,
-                      f.display_name.empty() ? f.title_id : f.display_name, x - 4, 320, 72, kWhite);
-        char meta[160];
+        const std::string title = fonts.display.font->fit(
+            f.display_name.empty() ? f.title_id : f.display_name, 72.0f, kHeroTextWidth);
+        hui::ui::text(list, fonts.display, title, x - 4, 320, 72, kWhite);
+        char meta[200];
         (void)std::snprintf(meta, sizeof(meta), "Runs on %s  \xC2\xB7  %s",
                             target_display_name(f.target).c_str(), f.title_id.c_str());
-        hui::ui::text(list, fonts.regular, meta, x, 372, 26, kWhite.with_alpha(0.78f));
+        hui::ui::text(list, fonts.regular, fonts.regular.font->fit(meta, 26.0f, kHeroTextWidth), x,
+                      372, 26, kWhite.with_alpha(0.78f));
         if (!f.rom.empty())
-            hui::ui::text(list, fonts.regular, std::string("ROM: ") + f.rom, x, 414, 24,
-                          kWhite.with_alpha(0.7f));
+            hui::ui::text(list, fonts.regular,
+                          fonts.regular.font->fit("ROM: " + f.rom, 24.0f, kHeroTextWidth), x, 414,
+                          24, kWhite.with_alpha(0.7f));
         if (f.exit_after_game)
             hui::ui::text(list, fonts.regular, "Exits when you quit the game", x, 452, 22,
                           kWhite.with_alpha(0.55f));
@@ -477,8 +555,18 @@ class HomeScreen final : public Screen
         const float nudge =
             hui::ui::shake(nudge_.value, clock_, 16.0f, 8.0f) * nudge_direction_;
         list.push_opacity(in);
-        hui::ui::text(list, fonts.semibold, "Your forwarders", kMargin, kShelfY - 44, 24,
-                      kWhite.with_alpha(0.9f));
+        if (!systems_.empty())
+        {
+            tabs_.set_bounds({kMargin, kShelfY - 108.0f,
+                              hui::gfx::kVirtualWidth - 2.0f * kMargin, 52.0f});
+            hui::ui::Canvas tab_canvas{list, fonts, 0, clock_};
+            tabs_.draw(tab_canvas);
+        }
+        else
+        {
+            hui::ui::text(list, fonts.semibold, "Your forwarders", kMargin, kShelfY - 60, 24,
+                          kWhite.with_alpha(0.9f));
+        }
         for (int tile = 0; tile < tile_count(); ++tile)
         {
             if (tile == focus_)
@@ -488,6 +576,9 @@ class HomeScreen final : public Screen
                 rect.x += kCard * (kCardGrow - 1.0f);
             if (rect.x > hui::gfx::kVirtualWidth || rect.x + rect.w < -80.0f)
                 continue;
+            // Drop shadow under every icon, for depth.
+            list.shadow({rect.x, rect.y + 12.0f, rect.w, rect.h}, 18.0f, 22.0f,
+                        Color::rgb(0x000000, 0.5f));
             draw_tile_art(list, rect, tile, 0.82f, 22.0f);
         }
         list.pop_opacity();
@@ -531,17 +622,26 @@ class HomeScreen final : public Screen
         const Rect art{sheet.x + 56, sheet.y + 56, 300, 300};
         draw_tile_art(list, art, focus_, 1.0f, 28.0f);
         const float x = art.x + art.w + 56;
+        // Text column stops short of the action buttons, so long titles and
+        // ROM names are ellipsised instead of overlapping them.
+        const float action_x = sheet.x + sheet.w - 56.0f - 420.0f;
+        const float textw = action_x - x - 36.0f;
         const Color accent = accent_for(seed_of(focus_));
         hui::ui::text(list, fonts.semibold, hui::ui::upper(target_display_name(f.target)), x,
                       sheet.y + 92, 20, accent, hui::gfx::Align::left, 4.0f);
-        hui::ui::text(list, fonts.display, f.display_name.empty() ? f.title_id : f.display_name,
+        hui::ui::text(list, fonts.display,
+                      fonts.display.font->fit(f.display_name.empty() ? f.title_id : f.display_name,
+                                              56.0f, textw),
                       x - 2, sheet.y + 158, 56, kWhite);
-        char meta[160];
+        char meta[200];
         (void)std::snprintf(meta, sizeof(meta), "%s  \xC2\xB7  target %s", f.title_id.c_str(),
                             f.target.c_str());
-        hui::ui::text(list, fonts.regular, meta, x, sheet.y + 206, 24, kWhite.with_alpha(0.78f));
-        hui::ui::text(list, fonts.regular, f.rom.empty() ? "No ROM argument" : ("ROM: " + f.rom), x,
-                      sheet.y + 244, 24, kWhite.with_alpha(0.7f));
+        hui::ui::text(list, fonts.regular, fonts.regular.font->fit(meta, 24.0f, textw), x,
+                      sheet.y + 206, 24, kWhite.with_alpha(0.78f));
+        hui::ui::text(list, fonts.regular,
+                      fonts.regular.font->fit(f.rom.empty() ? "No ROM argument" : ("ROM: " + f.rom),
+                                              24.0f, textw),
+                      x, sheet.y + 244, 24, kWhite.with_alpha(0.7f));
 
         const char *actions[kActions] = {"Edit", "Delete", "Close"};
         const float ax = sheet.x + sheet.w - 56 - 420;
@@ -589,8 +689,12 @@ class HomeScreen final : public Screen
         return hui::tween::stagger(age_, index, step, duration);
     }
 
-    std::vector<Forwarder> forwarders_;
-    std::vector<std::uint32_t> textures_;
+    std::vector<Forwarder> forwarders_;         // the full scan
+    std::vector<std::uint32_t> textures_;       // aligned to forwarders_
+    std::vector<std::string> systems_;          // tab labels after "All"
+    std::vector<int> visible_;                  // forwarders_ indices in the active tab
+    int active_tab_ = 0;                        // 0 = All
+    mutable hui::ui::TabBar tabs_;
     int focus_ = 0;
     int shown_ = 0;
     int previous_ = 0;

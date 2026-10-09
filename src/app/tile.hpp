@@ -4,6 +4,7 @@
 #pragma once
 
 #include "fwd/forwarder.hpp"
+#include "gfx/backdrop_spec.hpp"
 #include "gfx/draw_list.hpp"
 
 #include <array>
@@ -19,6 +20,10 @@ namespace fwd
 
 // A four-colour backdrop palette (for gfx::BackdropMode::aurora) derived from a
 // seed string, so the screen's colour follows the selection.
+// The shared Aurora backdrop for every screen but the home (which colours it
+// per selection), so the whole interface shares one design language.
+hui::gfx::BackdropSpec app_backdrop();
+
 std::array<hui::gfx::Color, 4> palette_for(const std::string &seed);
 
 // The accent colour for a seed (glows, focus rings, labels).

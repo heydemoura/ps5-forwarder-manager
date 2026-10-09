@@ -592,7 +592,9 @@ class EditScreen final : public Screen
         const std::string name =
             forwarder_.display_name.empty() ? std::string("Untitled forwarder")
                                             : forwarder_.display_name;
-        hui::ui::text(list, fonts.semibold, name, panel.cx(), art.y + art.h + 54.0f, 30.0f,
+        hui::ui::text(list, fonts.semibold,
+                      fonts.semibold.font->fit(name, 30.0f, panel.w - 48.0f), panel.cx(),
+                      art.y + art.h + 54.0f, 30.0f,
                       forwarder_.display_name.empty() ? white.with_alpha(0.5f) : white,
                       hui::gfx::Align::center);
         hui::ui::text(list, fonts.regular,
@@ -601,8 +603,10 @@ class EditScreen final : public Screen
         hui::ui::text(list, fonts.regular, forwarder_.title_id, panel.cx(), art.y + art.h + 128.0f,
                       20.0f, white.with_alpha(0.55f), hui::gfx::Align::center);
         if (!forwarder_.rom.empty())
-            hui::ui::text(list, fonts.regular, std::string("ROM: ") + forwarder_.rom, panel.cx(),
-                          art.y + art.h + 162.0f, 20.0f, white.with_alpha(0.7f),
+            hui::ui::text(list, fonts.regular,
+                          fonts.regular.font->fit(std::string("ROM: ") + forwarder_.rom, 20.0f,
+                                                  panel.w - 48.0f),
+                          panel.cx(), art.y + art.h + 162.0f, 20.0f, white.with_alpha(0.7f),
                           hui::gfx::Align::center);
     }
 
