@@ -22,5 +22,3 @@ dist/
 *.prx
 *.pkg
 
-# Generated from the launcher payload at build time.
-forwarder/src/launcher_payload.inc

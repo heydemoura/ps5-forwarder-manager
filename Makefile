@@ -27,7 +27,7 @@ PS5_OPENGL_PREFIX ?=
 # heap (src/runtime/app_heap.c) and the splash hold (src/runtime/runtime_shims.c).
 OPENGL_SDK := .deps/ps5-opengl/current
 override APP_DEFINITIONS := $(strip GL_GLEXT_PROTOTYPES=1 $(APP_DEFINITIONS))
-override APP_INCLUDE_PATHS := $(strip src $(OPENGL_SDK)/include $(APP_INCLUDE_PATHS))
+override APP_INCLUDE_PATHS := $(strip src external/ps5-forwarder-format/include $(OPENGL_SDK)/include $(APP_INCLUDE_PATHS))
 override APP_STATIC_ARCHIVES := $(strip .deps/ps5-opengl/libps5opengl-group.a $(APP_STATIC_ARCHIVES))
 override APP_IMPORT_STUBS := $(strip $(OPENGL_SDK)/lib/libSceAgc.so \
 	$(OPENGL_SDK)/lib/libSceAgcDriver.so $(APP_IMPORT_STUBS))
@@ -83,42 +83,36 @@ RUNTIME_INPUTS := tools/rebuild-libc.sh tools/build-host-tools.sh tools/ninja-bu
 	$(wildcard tooling/native/runtime/*.txt)
 HOST_UNIT_TEST := build/tests/unit_tests
 
-# The forwarder launcher payload (launcher/), built with the payload SDK and
-# shipped in the app's assets; Forwarder Manager sends it to elfldr when no
-# launcher is serving forwarders yet. Built objects are not committed.
+# The PS5 Forwarder Format (external/ps5-forwarder-format, a git submodule):
+# its prebuilt template is what every forwarder is made from, and its
+# launcher payload is what the app starts when no launcher is running. Plain
+# builds copy them; `make standard-template` rebuilds them from the format's
+# sources inside the submodule (then commit them there).
+FWD_STD := external/ps5-forwarder-format
 PAYLOAD_SDK := $(CURDIR)/.deps/native/ps5-payload-sdk
 LAUNCHER_ELF := assets/launcher/fwd-launcher.elf
-
-$(LAUNCHER_ELF): launcher/fwd_launcher.c
-	@printf '%s\n' '==> [launcher] Building the forwarder launcher payload'
-	@mkdir -p $(dir $@)
-	@$(PAYLOAD_SDK)/bin/prospero-clang -Wall -Wextra -Werror -O2 -o $@ $< \
-		$(PAYLOAD_SDK)/target/lib/crt1.o -lSceSystemService -lSceUserService
-
-.PHONY: launcher
-launcher: $(LAUNCHER_ELF)
-
-# The forwarder tile program (forwarder/), which carries the launcher payload
-# and starts it through elfldr when no launcher is running. Built with the
-# same boilerplate as the app (as its own small app, PPSA99100), then copied
-# into the forwarder template every new or upgraded forwarder is made from.
-FORWARDER_PAYLOAD_INC := forwarder/src/launcher_payload.inc
 FORWARDER_EBOOT := assets/forwarder-template/eboot.bin
 
-$(FORWARDER_PAYLOAD_INC): $(LAUNCHER_ELF) forwarder/embed_payload.py
-	@python3 forwarder/embed_payload.py $(LAUNCHER_ELF) $@
+$(LAUNCHER_ELF): $(FWD_STD)/template/launcher.elf
+	@mkdir -p $(dir $@)
+	@cp $< $@
 
-$(FORWARDER_EBOOT): forwarder/src/forwarder.c forwarder/param.json $(FORWARDER_PAYLOAD_INC) $(RUNTIME)
-	@printf '%s\n' '==> [forwarder] Building the forwarder tile program'
-	@APP_SOURCE_DIR=forwarder/src APP_PARAM=forwarder/param.json APP_SCE_SYS=sce_sys \
-		APP_ASSETS= APP_DEFINITIONS= APP_INCLUDE_PATHS= APP_STATIC_ARCHIVES= \
-		APP_IMPORT_STUBS= APP_WRAP_SYMBOLS= APP_RUNTIME_MODULES= APP_ROOT_FILES= \
-		APP_LAPY_HELPER=0 bash tools/build.sh Folder >/dev/null
-	@cp dist/PPSA99100/eboot.bin $@
-	@cp dist/PPSA99100/sce_module/libc.prx assets/forwarder-template/sce_module/libc.prx
+$(FORWARDER_EBOOT): $(FWD_STD)/template/eboot.bin $(FWD_STD)/template/sce_module/libc.prx
+	@cp $(FWD_STD)/template/eboot.bin $@
+	@cp $(FWD_STD)/template/sce_module/libc.prx assets/forwarder-template/sce_module/libc.prx
 
-.PHONY: forwarder
-forwarder: $(FORWARDER_EBOOT)
+.PHONY: standard-template
+standard-template: $(RUNTIME)
+	@printf '%s\n' '==> [format] Rebuilding the launcher payload and the forwarder program'
+	@$(MAKE) --no-print-directory -C $(FWD_STD) launcher embed PS5_PAYLOAD_SDK=$(PAYLOAD_SDK)
+	@APP_SOURCE_DIR=$(FWD_STD)/forwarder/src APP_PARAM=$(FWD_STD)/forwarder/param.json \
+		APP_INCLUDE_PATHS=$(FWD_STD)/include APP_SCE_SYS=sce_sys APP_ASSETS= \
+		APP_DEFINITIONS= APP_STATIC_ARCHIVES= APP_IMPORT_STUBS= APP_WRAP_SYMBOLS= \
+		APP_RUNTIME_MODULES= APP_ROOT_FILES= APP_LAPY_HELPER=0 bash tools/build.sh Folder >/dev/null
+	@mkdir -p $(FWD_STD)/template/sce_module
+	@cp dist/PPSA99100/eboot.bin $(FWD_STD)/template/eboot.bin
+	@cp dist/PPSA99100/sce_module/libc.prx $(FWD_STD)/template/sce_module/libc.prx
+	@printf '%s\n' '==> [format] Template rebuilt in $(FWD_STD)/template; commit it there'
 
 .PHONY: opengl
 opengl:

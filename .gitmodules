@@ -1,0 +1,3 @@
+[submodule "external/ps5-forwarder-format"]
+	path = external/ps5-forwarder-format
+	url = git@github.com:heydemoura/ps5-forwarder-format.git

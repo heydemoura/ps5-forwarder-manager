@@ -5,16 +5,11 @@
 #include "platform/launcher_inject.hpp"
 
 #include "platform/ps5/system.hpp"
+#include "psfwd.h"
 
-#include <arpa/inet.h>
 #include <atomic>
 #include <cstdio>
-#include <cstring>
-#include <netinet/in.h>
 #include <pthread.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <unistd.h>
 #include <vector>
 
 namespace launcher
@@ -23,47 +18,12 @@ namespace launcher
 namespace
 {
 
-constexpr unsigned short kLauncherPort = 10199;
-constexpr unsigned short kElfLoaderPort = 9021;
-
 std::atomic<int> g_state{static_cast<int>(State::checking)};
 std::string g_payload;
 
 void set_state(State state)
 {
     g_state.store(static_cast<int>(state));
-}
-
-// A connected TCP socket to 127.0.0.1:port, or -1.
-int connect_local(unsigned short port, int timeout_seconds)
-{
-    const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0)
-        return -1;
-    timeval timeout{timeout_seconds, 0};
-    (void)::setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-    (void)::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-    sockaddr_in address{};
-    address.sin_family = AF_INET;
-    address.sin_port = htons(port);
-    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    if (::connect(fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) != 0)
-    {
-        ::close(fd);
-        return -1;
-    }
-    return fd;
-}
-
-// Something accepts connections on the launcher port. The launcher treats a
-// connection closed without a request as a probe and says nothing.
-bool launcher_listening()
-{
-    const int fd = connect_local(kLauncherPort, 2);
-    if (fd < 0)
-        return false;
-    ::close(fd);
-    return true;
 }
 
 bool read_file(const std::string &path, std::vector<unsigned char> &out)
@@ -79,35 +39,12 @@ bool read_file(const std::string &path, std::vector<unsigned char> &out)
     return !out.empty();
 }
 
-// elfldr reads an ELF until the sender closes its side, then runs it.
-bool send_to_elfldr(const std::vector<unsigned char> &elf)
-{
-    const int fd = connect_local(kElfLoaderPort, 5);
-    if (fd < 0)
-        return false;
-    std::size_t done = 0;
-    while (done < elf.size())
-    {
-        const ssize_t sent = ::write(fd, elf.data() + done, elf.size() - done);
-        if (sent <= 0)
-            break;
-        done += static_cast<std::size_t>(sent);
-    }
-    (void)::shutdown(fd, SHUT_WR);
-    char sink[256];
-    while (::read(fd, sink, sizeof(sink)) > 0)
-    {
-    }
-    ::close(fd);
-    return done == elf.size();
-}
-
 void *run(void *)
 {
-    if (launcher_listening())
+    if (psfwd_launcher_running())
     {
         set_state(State::already_up);
-        hui::sys::log("[FWD] launcher: one is already serving 127.0.0.1:%u", kLauncherPort);
+        hui::sys::log("[FWD] launcher: one is already serving 127.0.0.1:%d", PSFWD_LAUNCHER_PORT);
         return nullptr;
     }
     std::vector<unsigned char> elf;
@@ -117,27 +54,16 @@ void *run(void *)
         hui::sys::log("[FWD] launcher: payload missing at %s", g_payload.c_str());
         return nullptr;
     }
-    if (!send_to_elfldr(elf))
+    if (!psfwd_ensure_launcher(elf.data(), elf.size()))
     {
+        // Either elfldr refused the payload, or it never came up.
         set_state(State::no_elfldr);
-        hui::sys::log("[FWD] launcher: elfldr did not take the payload (127.0.0.1:%u)",
-                      kElfLoaderPort);
+        hui::sys::log("[FWD] launcher: could not start it through elfldr (127.0.0.1:%d)",
+                      PSFWD_ELFLDR_PORT);
         return nullptr;
     }
-    // The payload binds within a moment of being loaded.
-    for (int attempt = 0; attempt < 30; ++attempt)
-    {
-        ::usleep(100 * 1000);
-        if (launcher_listening())
-        {
-            set_state(State::injected);
-            hui::sys::log("[FWD] launcher: built-in launcher injected (%zu bytes), up after %d ms",
-                          elf.size(), (attempt + 1) * 100);
-            return nullptr;
-        }
-    }
-    set_state(State::failed);
-    hui::sys::log("[FWD] launcher: injected but nothing listens on %u", kLauncherPort);
+    set_state(State::injected);
+    hui::sys::log("[FWD] launcher: built-in launcher injected (%zu bytes)", elf.size());
     return nullptr;
 }
 

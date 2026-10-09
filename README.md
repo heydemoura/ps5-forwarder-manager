@@ -29,18 +29,19 @@ a jailbroken console the owner develops on for personal use.
 - [ShadowMountPlus](https://github.com/drakmor/ShadowMountPlus) to register the
   generated tiles.
 
-No separate launcher payload is needed. A forwarder tile cannot start another
-app itself, so it asks a resident payload on `127.0.0.1:10199` to do it.
-Forwarder Manager ships its own open-source launcher (`launcher/fwd_launcher.c`,
-built into `assets/launcher/fwd-launcher.elf`) and sends it to `elfldr` when it
-starts and nothing is serving that port. It speaks the same request format as
-the forwarder `eboot.bin` (documented at the top of the source), logs to
-`/data/forwarder-manager/launcher.log`, and stays resident until the console
-restarts. If another launcher, such as ps5-app-launcher, is already running, it
-is left alone and serves the tiles instead. Settings shows which is in use.
+Forwarders are made in the [PS5 Forwarder Format](https://github.com/heydemoura/ps5-forwarder-format),
+a standard shared with emulators that create forwarders themselves. The format
+lives in the `external/ps5-forwarder-format` submodule: its specification, the
+`psfwd` library this app reads and writes forwarders with, the forwarder
+program every tile runs, and an open-source launcher.
 
-Forwarders only work once Forwarder Manager has been opened since the console
-started, unless another launcher is autoloaded.
+No separate launcher payload is needed. A tile cannot start another app
+itself, so it asks a resident launcher on `127.0.0.1:10199`; when none is
+running, the tile sends the launcher it carries to `elfldr` first. The app does
+the same when it starts, and at each start it gives existing forwarders the
+current forwarder program (only folders with a `forwarder.json` whose program
+is a forwarder's are touched). A launcher that is already running, such as
+ps5-app-launcher, is used as it is. Settings shows which one serves the tiles.
 
 ## Building
 
@@ -51,9 +52,14 @@ OpenGL kit. From a Linux or WSL host with Clang 18, lld, Make, Ninja and
 Python 3:
 
 ```bash
+git submodule update --init        # the PS5 Forwarder Format (or clone with --recursive)
 make                       # fetches the SDK, ps5-opengl and PacBrew libcurl, then builds
 make deploy PS5_HOST=<ip>  # uploads dist/<TITLE_ID>/ to /data/homebrew over FTP
 ```
+
+The forwarder template and launcher come prebuilt from the format's
+`template/` folder. `make standard-template` rebuilds them from the format's
+sources inside the submodule; commit the result there.
 
 The build needs `PACBREW_PACKAGES=libcurl` (for the SteamGridDB HTTPS client,
 since an elevated app cannot use `sceHttp`). See `.env.example`.

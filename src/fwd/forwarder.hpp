@@ -2,10 +2,10 @@
 // Copyright (C) 2026 heydemoura
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// A forwarder is a home-screen tile that asks ps5-app-launcher to start
-// another app (an emulator) with launch arguments. Every forwarder shares the
-// same eboot.bin and libc.prx; only forwarder.json, param.json and the
-// pictures differ. This mirrors ps5-forwarder.mph.am.
+// A forwarder is a home-screen tile that starts another app (an emulator)
+// with launch arguments, in the PS5 Forwarder Format (external/ps5-forwarder-
+// format). This is the app's view of one: a ROM, an exit flag and extra
+// arguments, which the store maps to the format's plain argument list.
 #pragma once
 
 #include <cstdint>
@@ -55,17 +55,13 @@ struct Forwarder
     // set), then the extra arguments, then --exit-after-game (when set).
     std::vector<Argument> resolved_args() const;
 
-    // The forwarder.json body ({"target":..,"args":[..]} with a trailing \n).
-    std::string forwarder_json() const;
-    // The sce_sys/param.json body for this title (site-compatible).
-    std::string param_json() const;
 };
 
 // Make a fresh, unused PPSA99xxx id (99200..99899), avoiding ids already in
 // forwarders_root and the reserved emulator ids.
 std::string new_title_id(const std::string &forwarders_root);
 
-// A title ID is PPSA/CUSA/LAPY/FAKE followed by five digits.
+// A title ID is PPSA/CUSA/LAPY followed by five digits.
 bool valid_title_id(const std::string &id);
 
 } // namespace fwd

@@ -33,6 +33,11 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The PS5 Forwarder Format is a submodule. While that repository is
+          # private, set a FORMAT_REPO_TOKEN secret that can read it.
+          submodules: recursive
+          token: ${{ secrets.FORMAT_REPO_TOKEN || github.token }}
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
