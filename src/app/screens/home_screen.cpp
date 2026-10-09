@@ -520,7 +520,7 @@ class HomeScreen final : public Screen
     {
         (void)overlay;
         const hui::ui::Theme &theme = context.theme;
-        hui::ui::text(scene.list, context.fonts.display, "PS5 Forwarder Generator", 96, 150, 48,
+        hui::ui::text(scene.list, context.fonts.display, "Forwarder Manager", 96, 150, 48,
                       kWhite);
         hui::ui::text(scene.list, context.fonts.semibold, "Lapy JB Daemon is not running", 96, 360,
                       34, theme.danger);

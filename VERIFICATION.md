@@ -1,6 +1,6 @@
 # Verification status
 
-This records what was verified for the PS5 Forwarder Generator and the one
+This records what was verified for the Forwarder Manager and the one
 step that needs the owner's SteamGridDB API key.
 
 ## Verified on the console (192.168.0.77, firmware 12.20)

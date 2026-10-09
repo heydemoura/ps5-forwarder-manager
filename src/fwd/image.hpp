@@ -1,4 +1,4 @@
-// image.hpp - image helpers for the PS5 forwarder generator.
+// image.hpp - image helpers for Forwarder Manager.
 //
 // Ports two image encoders from the ps5-forwarder.mph.am website JavaScript
 // to C++20:

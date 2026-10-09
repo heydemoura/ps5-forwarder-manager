@@ -4,7 +4,7 @@
 //
 // Asks Lapy for filesystem access first (single-threaded, before any other
 // subsystem), then opens the display, controller and audio and runs the
-// forwarder generator every frame: read input, update, play the sounds it
+// Forwarder Manager every frame: read input, update, play the sounds it
 // asked for, draw, present.
 
 #include "app/app.hpp"

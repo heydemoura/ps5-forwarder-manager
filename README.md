@@ -1,4 +1,4 @@
-# PS5 Forwarder Generator
+# Forwarder Manager
 
 A native PlayStation 5 homebrew app that creates and edits home-screen
 **forwarders**: tiles that launch another installed app (an emulator) with
