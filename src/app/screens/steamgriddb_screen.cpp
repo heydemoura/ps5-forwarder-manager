@@ -7,7 +7,7 @@
 // table lit by bokeh.
 //   - the header carries the title and a count, the matched games as filter
 //     chips with one paper tab sliding under the labels (L2/R2 or Left/Right
-//     step them), and the query top right in gold;
+//     step them);
 //   - each piece of art is a paper card holding its picture like a photo
 //     print, with the style and size printed under it; cards are dealt onto
 //     the table a few milliseconds apart, the focused one lifts with a second
@@ -103,7 +103,6 @@ constexpr float kChipY = 150.0f;
 constexpr float kChipH = 46.0f;
 constexpr float kChipGap = 10.0f;
 constexpr float kShoulder = 34.0f; // L2 / R2 glyph height beside the chips
-constexpr float kQueryColumn = 340.0f; // room at the right of the chips for the query
 // The details dialog.
 constexpr float kDialogW = 1360.0f;
 constexpr float kDialogH = 664.0f;
@@ -584,8 +583,7 @@ class SteamGridScreen final : public Screen
         if (chips.empty() || chip_ >= static_cast<int>(chips.size()))
             return 0.0f;
         const Rect &c = chips[static_cast<std::size_t>(chip_)];
-        const float limit =
-            kRight - kQueryColumn - hui::ui::button_width(hui::ui::Button::r2, kShoulder) - 18.0f;
+        const float limit = kRight - hui::ui::button_width(hui::ui::Button::r2, kShoulder) - 18.0f;
         return c.x + c.w > limit ? c.x + c.w - limit : 0.0f;
     }
     float content_height() const
@@ -991,7 +989,7 @@ class SteamGridScreen final : public Screen
             hui::ui::draw_button(list, fonts, glyphs, hui::ui::Button::l2, kMargin, chip_cy,
                                  kShoulder);
             const float left = kMargin + hui::ui::button_width(hui::ui::Button::l2, kShoulder) + 8.0f;
-            const float r2_x = kRight - kQueryColumn - hui::ui::button_width(hui::ui::Button::r2, kShoulder);
+            const float r2_x = kRight - hui::ui::button_width(hui::ui::Button::r2, kShoulder);
             const float right = r2_x - 8.0f;
             hui::ui::draw_button(list, fonts, glyphs, hui::ui::Button::r2, r2_x, chip_cy, kShoulder);
             list.push_clip({left, kChipY - 12.0f, right - left, kChipH + 24.0f});
@@ -1030,14 +1028,11 @@ class SteamGridScreen final : public Screen
             }
             list.pop_clip();
         }
-        // The query, top right, in gold: Triangle changes it.
-        hui::ui::text(list, fonts.semibold, "SEARCHING FOR", kRight, kChipY - 12.0f, 16.0f,
-                      kOnDark.with_alpha(0.5f), hui::gfx::Align::right, 3.0f);
-        hui::ui::text(list, fonts.semibold, fonts.semibold.font->fit(query_, 24.0f, 360.0f), kRight,
-                      chip_cy + 9.0f, 24.0f, kGold, hui::gfx::Align::right);
+        // The chips say which game the shelf holds, so the query itself is
+        // not repeated; only a problem is reported, up by the title.
         if (!message_.empty())
-            hui::ui::text(list, fonts.regular, message_, kRight, chip_cy + 44.0f, 20.0f,
-                          kGold.with_alpha(0.85f), hui::gfx::Align::right);
+            hui::ui::text(list, fonts.regular, message_, kRight, kTitleBaseline - rise, 22.0f,
+                          kGold.with_alpha(0.9f), hui::gfx::Align::right);
         list.pop_transform();
         list.pop_opacity();
     }
