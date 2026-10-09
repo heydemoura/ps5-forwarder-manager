@@ -189,8 +189,8 @@ int main()
     gfx::Canvas shot_canvas;
     bool shot_pending = false;
     int shot_index = 0;
-    constexpr int kShotW = 960;
-    constexpr int kShotH = 540;
+    constexpr int kShotW = 1920;
+    constexpr int kShotH = 1080;
     for (;;)
     {
         const std::int64_t now = sys::monotonic_us();
