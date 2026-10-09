@@ -47,6 +47,14 @@ std::vector<unsigned char> make_background_dds(const unsigned char *data,
 std::vector<unsigned char> make_background_dds_rgba(const unsigned char *rgba,
                                                     int w, int h);
 
+// Same, but to an explicit output size. The runtime forwarder path uses the
+// 1080p default above (heap-bound); the app's own build-time sce_sys
+// backgrounds are encoded at full 4K through these.
+std::vector<unsigned char> make_background_dds_sized(const unsigned char *data,
+                                                     std::size_t size, int out_w, int out_h);
+std::vector<unsigned char> make_background_dds_rgba_sized(const unsigned char *rgba, int w, int h,
+                                                         int out_w, int out_h);
+
 // The target dimensions, for callers.
 bool write_png_file(const char *path, const unsigned char *rgba, int w, int h);
 

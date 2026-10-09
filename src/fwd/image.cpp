@@ -214,7 +214,8 @@ void put_u32(std::vector<unsigned char> &v, std::size_t off, std::uint32_t val) 
     v[off + 3] = static_cast<unsigned char>((val >> 24) & 0xff);
 }
 
-std::vector<unsigned char> wrap_dds(const std::vector<unsigned char> &blocks) {
+std::vector<unsigned char> wrap_dds(const std::vector<unsigned char> &blocks, int out_w,
+                                    int out_h) {
     std::vector<unsigned char> out(148 + blocks.size(), 0);
     out[0] = 68;  // 'D'
     out[1] = 68;  // 'D'
@@ -222,8 +223,8 @@ std::vector<unsigned char> wrap_dds(const std::vector<unsigned char> &blocks) {
     out[3] = 32;  // ' '
     put_u32(out, 4, 124);     // header size
     put_u32(out, 8, 528391);  // DDSD flags (verbatim from JS)
-    put_u32(out, 12, static_cast<std::uint32_t>(kBackgroundHeight));
-    put_u32(out, 16, static_cast<std::uint32_t>(kBackgroundWidth));
+    put_u32(out, 12, static_cast<std::uint32_t>(out_h));
+    put_u32(out, 16, static_cast<std::uint32_t>(out_w));
     put_u32(out, 20, static_cast<std::uint32_t>(blocks.size()));  // linearSize
     put_u32(out, 28, 1);   // mipCount
     put_u32(out, 76, 32);  // pixelformat size
@@ -304,18 +305,18 @@ std::vector<unsigned char> make_icon_png(const unsigned char *data,
     return make_icon_png_rgba(rgba.data(), w, h);
 }
 
-std::vector<unsigned char> make_background_dds_rgba(const unsigned char *rgba,
-                                                    int w, int h) {
-    if (rgba == nullptr || w <= 0 || h <= 0) return {};
+std::vector<unsigned char> make_background_dds_rgba_sized(const unsigned char *rgba, int w, int h,
+                                                         int out_w, int out_h) {
+    if (rgba == nullptr || w <= 0 || h <= 0 || out_w <= 0 || out_h <= 0) return {};
 
-    // backgroundRgba(): COVER scale factor so the image fills the 3840x2160
+    // backgroundRgba(): COVER scale factor so the image fills the out_w x out_h
     // canvas, then center-crop the overflow.
-    double t = std::max(static_cast<double>(kBackgroundWidth) / w,
-                        static_cast<double>(kBackgroundHeight) / h);
+    double t = std::max(static_cast<double>(out_w) / w,
+                        static_cast<double>(out_h) / h);
     long sw = std::lround(w * t);
     long sh = std::lround(h * t);
-    if (sw < kBackgroundWidth) sw = kBackgroundWidth;
-    if (sh < kBackgroundHeight) sh = kBackgroundHeight;
+    if (sw < out_w) sw = out_w;
+    if (sh < out_h) sh = out_h;
 
     std::vector<unsigned char> scaled(
         static_cast<std::size_t>(sw) * static_cast<std::size_t>(sh) * 4);
@@ -325,25 +326,29 @@ std::vector<unsigned char> make_background_dds_rgba(const unsigned char *rgba,
         return {};
     }
 
-    // Center-crop to exactly 3840x2160.
+    // Center-crop to exactly out_w x out_h.
     std::vector<unsigned char> canvas(
-        static_cast<std::size_t>(kBackgroundWidth) * kBackgroundHeight * 4);
-    int ox = static_cast<int>((sw - kBackgroundWidth) / 2);
-    int oy = static_cast<int>((sh - kBackgroundHeight) / 2);
-    for (int y = 0; y < kBackgroundHeight; ++y) {
+        static_cast<std::size_t>(out_w) * out_h * 4);
+    int ox = static_cast<int>((sw - out_w) / 2);
+    int oy = static_cast<int>((sh - out_h) / 2);
+    for (int y = 0; y < out_h; ++y) {
         const unsigned char *srow =
             scaled.data() +
             (static_cast<std::size_t>(y + oy) * static_cast<std::size_t>(sw) +
              ox) * 4;
         unsigned char *drow =
             canvas.data() +
-            static_cast<std::size_t>(y) * kBackgroundWidth * 4;
-        std::memcpy(drow, srow, static_cast<std::size_t>(kBackgroundWidth) * 4);
+            static_cast<std::size_t>(y) * out_w * 4;
+        std::memcpy(drow, srow, static_cast<std::size_t>(out_w) * 4);
     }
 
-    std::vector<unsigned char> blocks =
-        bc7_encode(canvas.data(), kBackgroundWidth, kBackgroundHeight);
-    return wrap_dds(blocks);
+    std::vector<unsigned char> blocks = bc7_encode(canvas.data(), out_w, out_h);
+    return wrap_dds(blocks, out_w, out_h);
+}
+
+std::vector<unsigned char> make_background_dds_rgba(const unsigned char *rgba,
+                                                    int w, int h) {
+    return make_background_dds_rgba_sized(rgba, w, h, kBackgroundWidth, kBackgroundHeight);
 }
 
 std::vector<unsigned char> make_background_dds(const unsigned char *data,
@@ -352,6 +357,14 @@ std::vector<unsigned char> make_background_dds(const unsigned char *data,
     std::vector<unsigned char> rgba;
     if (!decode_image(data, size, w, h, rgba)) return {};
     return make_background_dds_rgba(rgba.data(), w, h);
+}
+
+std::vector<unsigned char> make_background_dds_sized(const unsigned char *data,
+                                                     std::size_t size, int out_w, int out_h) {
+    int w = 0, h = 0;
+    std::vector<unsigned char> rgba;
+    if (!decode_image(data, size, w, h, rgba)) return {};
+    return make_background_dds_rgba_sized(rgba.data(), w, h, out_w, out_h);
 }
 
 

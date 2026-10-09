@@ -103,6 +103,19 @@ doctor:
 
 test: test-unit test-integration test-elevation test-update-check test-self-update
 
+.PHONY: app-assets
+# Rebuild the app's own sce_sys presentation assets (icon0.png, pic0.dds,
+# pic1.dds) from the source artwork kept next to them, with the in-tree
+# encoders. Run after replacing sce_sys/icon-source.png or
+# sce_sys/background-source.png.
+app-assets:
+	@printf '%s\n' '==> [assets] Building tools/make-app-assets'
+	@$(HOST_CXX) -std=c++20 -O2 -I src tools/make-app-assets.cpp src/fwd/image.cpp \
+		-o build/make-app-assets
+	@printf '%s\n' '==> [assets] Encoding sce_sys/icon0.png, pic0.dds, pic1.dds'
+	@build/make-app-assets --icon sce_sys/icon-source.png \
+		--background sce_sys/background-source.png --out sce_sys
+
 .PHONY: test-elevation
 test-elevation:
 	@bash tools/setup-native-dependencies.sh >/dev/null
