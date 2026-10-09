@@ -156,7 +156,7 @@ int main()
     const auto bank = sounds.load(assets + "/audio/sfx");
     sys::log("[FWD] sounds files=%d rejected=%d", bank.files, bank.rejected);
 
-    fwd::App app(fonts, renderer, kDataRoot, elevated == elevation::Status::ok,
+    fwd::App app(fonts, renderer, kDataRoot, mixer, elevated == elevation::Status::ok,
                  status_name(elevated));
     const std::string version = read_content_version(paths::app_root() + "/sce_sys/param.json");
     app.set_version(version);

@@ -53,9 +53,13 @@ struct App::Stack
 };
 
 App::App(const hui::ui::Fonts &fonts, hui::gfx::Renderer &renderer, std::string data_root,
-         bool elevated, const char *elevation_status)
+         hui::audio::Mixer &mixer, bool elevated, const char *elevation_status)
     : context_(new Context{fonts, renderer, hui::ui::default_theme(), Settings{}}), stack_(new Stack)
 {
+    music_ = std::make_unique<PreviewMusic>();
+    music_->init(mixer);
+    context_->mixer = &mixer;
+    context_->music = music_.get();
     context_->data_root = std::move(data_root);
     context_->app_template_root = paths::assets() + "/forwarder-template";
     context_->settings = Settings::load(context_->data_root + "/settings.txt");
@@ -141,6 +145,7 @@ void App::apply_navigation()
 
 void App::update(const hui::InputFrame &input, float dt)
 {
+    music_->pump();
     feedback_.clear();
     clock_ += dt;
     apply_navigation();

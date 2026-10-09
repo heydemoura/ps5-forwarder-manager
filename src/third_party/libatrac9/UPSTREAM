@@ -1,0 +1,4 @@
+LibAtrac9 (C decoder), https://github.com/Thealexbarney/LibAtrac9
+Vendored from the master branch, C/src/ (MIT, see LICENSE). Unmodified.
+Used by src/audio/at9.cpp to decode forwarder selection music (snd0.at9)
+for the live preview on the edit screen.

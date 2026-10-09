@@ -55,6 +55,15 @@ std::vector<unsigned char> make_background_dds_sized(const unsigned char *data,
 std::vector<unsigned char> make_background_dds_rgba_sized(const unsigned char *rgba, int w, int h,
                                                          int out_w, int out_h);
 
+// Decode a BC7 DDS written by make_background_dds (DX10 header, mode 6
+// blocks only, which is all the website's and this app's encoder emit) back
+// to RGBA, for the edit screen's live preview. When the image is wider than
+// max_width it is subsampled 2x on both axes while decoding, so a 4K file
+// never needs a 33 MB buffer on the app heap. Returns false for anything but
+// a mode-6 BC7 DX10 DDS.
+bool decode_bc7_dds(const unsigned char *dds, std::size_t size, int &w, int &h,
+                    std::vector<unsigned char> &out_rgba, int max_width = 1920);
+
 // The target dimensions, for callers.
 bool write_png_file(const char *path, const unsigned char *rgba, int w, int h);
 

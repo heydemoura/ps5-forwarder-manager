@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "app/preview_music.hpp"
 #include "audio/cues.hpp"
 #include "core/input.hpp"
 #include "gfx/backdrop_spec.hpp"
@@ -38,7 +39,7 @@ struct Frame
 class App
 {
   public:
-    App(const hui::ui::Fonts &fonts, hui::gfx::Renderer &renderer, std::string data_root,
+    App(const hui::ui::Fonts &fonts, hui::gfx::Renderer &renderer, std::string data_root, hui::audio::Mixer &mixer,
         bool elevated, const char *elevation_status);
     ~App();
     App(const App &) = delete;
@@ -69,6 +70,7 @@ class App
     void apply_navigation();
 
     std::unique_ptr<Context> context_;
+    std::unique_ptr<PreviewMusic> music_;
     std::unique_ptr<Stack> stack_;
     hui::ui::Feedback feedback_;
     Frame frame_;

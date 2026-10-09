@@ -1,32 +1,41 @@
-// ps5fwdgen - Create or edit one forwarder.
+// ps5fwdgen - Create or edit one forwarder, laid out as the Aurora Shelf
+// concept (ps5-homebrew-ui src/concepts/aurora.cpp): the forwarder is the
+// hero (floating artwork, display title, meta line, a completeness bar) over
+// its own background, with the form on a frosted details sheet below, and
+// its selection music playing on a mixer deck.
 // Copyright (C) 2026 heydemoura
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "app/screens/edit_screen.hpp"
 
 #include "app/context.hpp"
+#include "app/preview_music.hpp"
 #include "app/screens/art_screen.hpp"
 #include "app/screens/file_picker_screen.hpp"
+#include "app/tile.hpp"
+#include "audio/at9.hpp"
+#include "core/tween.hpp"
+#include "fwd/image.hpp"
 #include "fwd/store.hpp"
+#include "gfx/gl_batch.hpp"
+#include "gfx/renderer.hpp"
+#include "net/http.hpp"
+#include "platform/ps5/system.hpp"
 #include "ui/components/dialog.hpp"
 #include "ui/components/form.hpp"
 #include "ui/components/input_prompt.hpp"
 #include "ui/components/toast.hpp"
-#include "net/http.hpp"
-#include "platform/ps5/system.hpp"
 #include "ui/fonts.hpp"
-#include "app/tile.hpp"
-#include "gfx/renderer.hpp"
-#include "gfx/gl_batch.hpp"
+#include "ui/motion.hpp"
+
 #include <GL/glcorearb.h>
-#include <cmath>
 
 #include <atomic>
-#include <mutex>
-#include <pthread.h>
-
+#include <cmath>
 #include <cstdio>
 #include <memory>
+#include <mutex>
+#include <pthread.h>
 #include <string>
 #include <utility>
 #include <vector>
@@ -36,6 +45,9 @@ namespace fwd
 
 namespace
 {
+
+using hui::gfx::Color;
+using hui::gfx::Rect;
 
 extern "C" void glDeleteTextures(int n, const unsigned int *textures);
 
@@ -76,13 +88,25 @@ enum class Prompting
     title_id,
 };
 
-constexpr hui::gfx::Rect kFormBounds{96.0f, 300.0f, 1040.0f, 640.0f};
+const Color kWhite = Color::rgb(0xffffff);
+const Color kInk = Color::rgb(0x0b0d16);
+constexpr float kMargin = 96.0f;
+// The concept's details sheet, 120 in from both sides at the bottom of the
+// screen; a little shorter than the concept's 500 so the app's hint bar
+// below it stays visible.
+constexpr float kSheetHeight = 420.0f;
+constexpr Rect kSheet{120.0f, hui::gfx::kVirtualHeight - kSheetHeight - 96.0f, 1680.0f,
+                      kSheetHeight};
+constexpr Rect kFormBounds{kSheet.x + 40.0f, kSheet.y + 24.0f, 840.0f, kSheetHeight - 48.0f};
+constexpr float kTileW = 216.0f;
+constexpr float kTileH = 120.0f;
+constexpr float kTilePitch = 236.0f;
 
 class EditScreen final : public Screen
 {
   public:
     EditScreen(Context &context, Forwarder initial, bool editing)
-        : forwarder_(std::move(initial)), editing_(editing)
+        : context_(&context), forwarder_(std::move(initial)), editing_(editing)
     {
         if (!editing_ && forwarder_.title_id.empty())
             forwarder_.title_id = new_title_id(context.settings.forwarders_root);
@@ -104,14 +128,17 @@ class EditScreen final : public Screen
     ~EditScreen() override
     {
         join_convert();
-        if (preview_tex_ != 0)
-            glDeleteTextures(1, &preview_tex_);
+        if (context_->music != nullptr)
+            context_->music->stop();
+        release_textures();
     }
 
     void restyle(Context &context) override
     {
         form_.style.theme = context.theme;
-        form_.style.panel = true;
+        form_.style.panel = false; // the frosted sheet is the panel
+        form_.style.on_page = true;
+        form_.style.dividers = false;
         dialog_.style.theme = context.theme;
         toasts_.style.theme = context.theme;
         prompt_.style.theme = context.theme;
@@ -140,6 +167,19 @@ class EditScreen final : public Screen
         return targets[static_cast<std::size_t>(target_index_)];
     }
 
+    bool has_icon() const
+    {
+        return forwarder_.has_icon || !assets_.icon_png.empty();
+    }
+    bool has_background() const
+    {
+        return forwarder_.has_backgrounds || !assets_.pic0_dds.empty();
+    }
+    bool has_music() const
+    {
+        return forwarder_.has_music || !assets_.music_at9.empty();
+    }
+
     void build(Context &context)
     {
         (void)context;
@@ -166,12 +206,11 @@ class EditScreen final : public Screen
             form_.add_toggle(RowExit, "Exit after quitting game", forwarder_.exit_after_game);
 
         form_.add_header("Presentation");
-        form_.add_action(RowIcon, "Tile icon").text =
-            (forwarder_.has_icon || !assets_.icon_png.empty()) ? "set" : "(required)";
+        form_.add_action(RowIcon, "Tile icon").text = has_icon() ? "set" : "(required)";
         form_.add_action(RowBackground, "Backgrounds").text =
-            (forwarder_.has_backgrounds || !assets_.pic0_dds.empty()) ? "set" : "(optional)";
+            has_background() ? "set" : "(optional)";
         form_.add_action(RowMusic, "Selection music (.at9)").text =
-            (forwarder_.has_music || !assets_.music_at9.empty()) ? "set" : "(optional)";
+            has_music() ? "set" : "(optional)";
 
         form_.add_header("");
         form_.add_action(RowGenerate, editing_ ? "Save forwarder" : "Generate forwarder")
@@ -199,7 +238,7 @@ class EditScreen final : public Screen
             toasts_.push(hui::ui::StatusKind::warning, "A target title ID is required");
             return;
         }
-        if (!forwarder_.has_icon && assets_.icon_png.empty())
+        if (!has_icon())
         {
             toasts_.push(hui::ui::StatusKind::warning, "A tile icon is required");
             return;
@@ -222,6 +261,8 @@ class EditScreen final : public Screen
     void update(Context &context, const hui::InputFrame &input, float dt,
                 hui::ui::Feedback &feedback) override
     {
+        age_ += dt;
+        clock_ += dt;
         poll_convert(context);
         refresh_preview(context);
         if (converting_)
@@ -336,6 +377,7 @@ class EditScreen final : public Screen
                     self->assets_.pic0_dds = bytes;
                     self->assets_.pic1_dds = std::move(bytes);
                     self->dirty_ = true;
+                    self->background_dirty_ = true;
                 }));
             break;
         }
@@ -355,6 +397,7 @@ class EditScreen final : public Screen
                     {
                         self->assets_.music_at9 = std::move(bytes);
                         self->dirty_ = true;
+                        self->music_dirty_ = true;
                     }
                     else
                     {
@@ -453,6 +496,7 @@ class EditScreen final : public Screen
         {
             assets_.music_at9 = std::move(convert_out_);
             dirty_ = true;
+            music_dirty_ = true;
             toasts_.push(hui::ui::StatusKind::success, "Audio converted to ATRAC9");
             build(context);
         }
@@ -504,6 +548,13 @@ class EditScreen final : public Screen
         build(context);
     }
 
+    // ---- live preview: icon, background and music ---------------------------
+
+    std::string forwarder_dir(const Context &context) const
+    {
+        return context.settings.forwarders_root + "/" + forwarder_.title_id;
+    }
+
     void enter(Context &context) override
     {
         if (dirty_)
@@ -511,103 +562,301 @@ class EditScreen final : public Screen
             build(context);
             dirty_ = false;
         }
-        if (preview_tex_ == 0 && assets_.icon_png.empty() && editing_ && forwarder_.has_icon)
+        // An existing forwarder's own files, the first time in.
+        if (editing_ && !existing_loaded_)
         {
-            const std::string dir =
-                context.settings.forwarders_root + "/" + forwarder_.title_id;
-            preview_tex_ = load_icon_texture(context.renderer, dir);
+            existing_loaded_ = true;
+            const std::string dir = forwarder_dir(context);
+            if (forwarder_.has_icon && assets_.icon_png.empty())
+                icon_tex_ = load_icon_texture(context.renderer, dir);
+            if (forwarder_.has_backgrounds && assets_.pic0_dds.empty())
+            {
+                std::vector<unsigned char> dds;
+                if (read_whole_file(dir + "/sce_sys/pic0.dds", dds))
+                    set_background_texture(context, dds);
+            }
+            if (forwarder_.has_music && assets_.music_at9.empty())
+            {
+                std::vector<unsigned char> at9;
+                if (read_whole_file(dir + "/sce_sys/snd0.at9", at9))
+                    play_music(context, at9);
+            }
         }
         refresh_preview(context);
     }
 
     void refresh_preview(Context &context)
     {
-        if (!icon_dirty_)
-            return;
-        icon_dirty_ = false;
-        if (preview_tex_ != 0)
+        if (icon_dirty_)
         {
-            glDeleteTextures(1, &preview_tex_);
-            preview_tex_ = 0;
+            icon_dirty_ = false;
+            if (icon_tex_ != 0)
+            {
+                glDeleteTextures(1, &icon_tex_);
+                icon_tex_ = 0;
+            }
+            if (!assets_.icon_png.empty())
+                icon_tex_ = upload_image_texture(context.renderer, assets_.icon_png.data(),
+                                                 assets_.icon_png.size());
         }
-        if (!assets_.icon_png.empty())
-            preview_tex_ = upload_image_texture(context.renderer, assets_.icon_png.data(),
-                                               assets_.icon_png.size());
+        if (background_dirty_)
+        {
+            background_dirty_ = false;
+            set_background_texture(context, assets_.pic0_dds);
+        }
+        if (music_dirty_)
+        {
+            music_dirty_ = false;
+            play_music(context, assets_.music_at9);
+        }
+    }
+
+    void set_background_texture(Context &context, const std::vector<unsigned char> &dds)
+    {
+        if (background_tex_ != 0)
+        {
+            glDeleteTextures(1, &background_tex_);
+            background_tex_ = 0;
+        }
+        int w = 0;
+        int h = 0;
+        std::vector<unsigned char> rgba;
+        const std::int64_t started = hui::sys::monotonic_us();
+        const bool ok = decode_bc7_dds(dds.data(), dds.size(), w, h, rgba, 1920);
+        if (ok && w > 0 && h > 0)
+            background_tex_ = context.renderer.batch().create_texture(w, h, rgba.data());
+        hui::sys::log("[FWD] preview background ok=%d %dx%d in %lld ms", ok ? 1 : 0, w, h,
+                      static_cast<long long>((hui::sys::monotonic_us() - started) / 1000));
+    }
+
+    void play_music(Context &context, const std::vector<unsigned char> &at9)
+    {
+        if (context.music == nullptr)
+            return;
+        const std::int64_t started = hui::sys::monotonic_us();
+        const at9::Decoded clip = at9::decode(at9.data(), at9.size());
+        const bool playing = clip.ok() && context.music->play(clip);
+        hui::sys::log("[FWD] preview music ok=%d frames=%zu rate=%d ch=%d decode_ms=%lld err=%s",
+                      playing ? 1 : 0, clip.frames, clip.sample_rate, clip.channels,
+                      static_cast<long long>((hui::sys::monotonic_us() - started) / 1000),
+                      clip.error.c_str());
+        if (!clip.ok())
+            toasts_.push(hui::ui::StatusKind::warning, "Could not play the music",
+                         clip.error);
+    }
+
+    void release_textures()
+    {
+        if (icon_tex_ != 0)
+            glDeleteTextures(1, &icon_tex_);
+        if (background_tex_ != 0)
+            glDeleteTextures(1, &background_tex_);
+        icon_tex_ = 0;
+        background_tex_ = 0;
+    }
+
+    // ---- drawing --------------------------------------------------------------
+
+    float stagger(int index, float step, float duration) const
+    {
+        return hui::tween::stagger(age_, index, step, duration);
+    }
+
+    Color accent() const
+    {
+        return accent_for(forwarder_.title_id.empty() ? std::string("__new__")
+                                                      : forwarder_.title_id);
     }
 
     bool draw(Context &context, hui::ui::Canvas &scene, hui::ui::Canvas &overlay) const override
     {
-        const hui::ui::Theme &theme = context.theme;
-        const hui::gfx::Color text = theme.page_text.a > 0.0f ? theme.page_text : theme.text;
-        hui::ui::text(scene.list, context.fonts.display,
-                      editing_ ? "Edit forwarder" : "New forwarder", 96.0f, 150.0f, 46.0f, text);
-        form_.draw(scene);
-        draw_preview(context, scene.list);
-        if (converting_)
-            hui::ui::text(scene.list, context.fonts.regular, "Converting audio to ATRAC9 online...",
-                          96.0f, 960.0f, 26.0f, theme.text_muted);
-        const bool modal = dialog_.visible() || prompt_.visible();
+        draw_background(scene.list);
+        draw_hero(context, scene.list);
+        // The sheet sits in the overlay so Frame::glass can blur the hero and
+        // background behind it, as the concept's details sheet does.
+        draw_sheet(context, overlay);
+        form_.draw(overlay);
         dialog_.draw(overlay);
         prompt_.draw(overlay);
         toasts_.draw(overlay);
-        return modal;
+        return true;
     }
 
-    void draw_preview(Context &context, hui::gfx::DrawList &list) const
+    // The forwarder's own background under everything, darkened toward the
+    // bottom so the hero text and the sheet read; without one the aurora
+    // backdrop shows through as on the home screen.
+    void draw_background(hui::gfx::DrawList &list) const
     {
-        using hui::gfx::Color;
-        using hui::gfx::Rect;
-        const hui::ui::Fonts &fonts = context.fonts;
-        const Color white = Color::rgb(0xffffff);
-        const std::string seed =
-            forwarder_.title_id.empty() ? std::string("__new__") : forwarder_.title_id;
-        const Color accent = accent_for(seed);
-
-        // Panel.
-        const Rect panel{1180.0f, 300.0f, 644.0f, 620.0f};
-        list.rounded_rect(panel, 28.0f, Color::rgb(0x0b0d16, 0.5f));
-        list.bordered_rect(panel, 28.0f, Color::rgb(0x000000, 0.0f), 1.5f, white.with_alpha(0.14f));
-        hui::ui::text(list, fonts.semibold, "LIVE PREVIEW", panel.x + 36.0f, panel.y + 52.0f, 18.0f,
-                      accent, hui::gfx::Align::left, 4.0f);
-
-        // The tile as the home screen would show it.
-        const float size = 300.0f;
-        const Rect art{panel.cx() - size * 0.5f, panel.y + 84.0f, size, size};
-        list.glow(art.inset(24.0f), 50.0f, 70.0f, accent.with_alpha(0.3f));
-        list.shadow({art.x, art.y + 20.0f, art.w, art.h}, 30.0f, 40.0f, Color::rgb(0x000000, 0.5f));
-        if (preview_tex_ != 0)
+        const Rect screen{0.0f, 0.0f, hui::gfx::kVirtualWidth, hui::gfx::kVirtualHeight};
+        if (background_tex_ != 0)
         {
-            list.image(preview_tex_, art, hui::gfx::kFullUv, white, 28.0f);
+            const float in = stagger(0, 0.0f, 0.8f);
+            list.image(background_tex_, screen, hui::gfx::kFullUv, kWhite.with_alpha(in), 0.0f);
+        }
+        list.gradient_rect(screen, 0.0f, kInk.with_alpha(background_tex_ != 0 ? 0.25f : 0.0f),
+                           kInk.with_alpha(0.9f));
+    }
+
+    // The concept's hero block: artwork floating at the right with a glow in
+    // its accent, a tracked label, the display title, a meta line, a blurb,
+    // and a progress bar that here shows how complete the forwarder is.
+    void draw_hero(Context &context, hui::gfx::DrawList &list) const
+    {
+        const hui::ui::Fonts &fonts = context.fonts;
+        const float in = stagger(1, 0.08f, 0.6f);
+        const float slide = 30.0f * (1.0f - in);
+        const Color tint = accent();
+        char text[160];
+        list.push_opacity(in);
+
+        const float bob =
+            context.settings.reduced_motion ? 0.0f : std::sin(clock_ * 0.8f) * 6.0f;
+        const Rect art{1316.0f + slide * 1.6f, 132.0f + bob, 440.0f, 440.0f};
+        list.glow(art.inset(30.0f), 60.0f, 90.0f, tint.with_alpha(0.3f));
+        list.shadow({art.x, art.y + 26.0f, art.w, art.h}, 36.0f, 46.0f, Color::rgb(0x000000, 0.55f));
+        if (icon_tex_ != 0)
+        {
+            list.image(icon_tex_, art, hui::gfx::kFullUv, kWhite, 36.0f);
         }
         else
         {
-            list.gradient_rect(art, 28.0f, hui::gfx::mix(accent, Color::rgb(0x0b0d16), 0.4f),
-                               Color::rgb(0x0b0d16));
-            hui::ui::text(list, fonts.regular, "no icon yet", art.cx(), art.cy() + 8.0f, 24.0f,
-                          white.with_alpha(0.6f), hui::gfx::Align::center);
+            list.gradient_rect(art, 36.0f, hui::gfx::mix(tint, kInk, 0.4f), kInk);
+            hui::ui::text(list, fonts.regular, "no icon yet", art.cx(), art.cy() + 8.0f, 26.0f,
+                          kWhite.with_alpha(0.6f), hui::gfx::Align::center);
         }
-        list.bordered_rect(art, 28.0f, Color::rgb(0x000000, 0.0f), 2.0f, white.with_alpha(0.16f));
+        list.bordered_rect(art, 36.0f, Color::rgb(0x000000, 0.0f), 2.0f, kWhite.with_alpha(0.16f));
 
-        // Title under the tile, like the home screen.
-        const std::string name =
-            forwarder_.display_name.empty() ? std::string("Untitled forwarder")
-                                            : forwarder_.display_name;
+        const float x = kMargin + slide;
         hui::ui::text(list, fonts.semibold,
-                      fonts.semibold.font->fit(name, 30.0f, panel.w - 48.0f), panel.cx(),
-                      art.y + art.h + 54.0f, 30.0f,
-                      forwarder_.display_name.empty() ? white.with_alpha(0.5f) : white,
-                      hui::gfx::Align::center);
-        hui::ui::text(list, fonts.regular,
-                      std::string("Runs on ") + target_display_name(forwarder_.target),
-                      panel.cx(), art.y + art.h + 94.0f, 24.0f, accent, hui::gfx::Align::center);
-        hui::ui::text(list, fonts.regular, forwarder_.title_id, panel.cx(), art.y + art.h + 128.0f,
-                      20.0f, white.with_alpha(0.55f), hui::gfx::Align::center);
-        if (!forwarder_.rom.empty())
-            hui::ui::text(list, fonts.regular,
-                          fonts.regular.font->fit(std::string("ROM: ") + forwarder_.rom, 20.0f,
-                                                  panel.w - 48.0f),
-                          panel.cx(), art.y + art.h + 162.0f, 20.0f, white.with_alpha(0.7f),
-                          hui::gfx::Align::center);
+                      hui::ui::upper(editing_ ? "Edit forwarder" : "New forwarder"), x, 212.0f,
+                      20.0f, tint, hui::gfx::Align::left, 4.0f);
+        const bool untitled = forwarder_.display_name.empty();
+        const std::string title = untitled ? std::string("Untitled forwarder")
+                                           : forwarder_.display_name;
+        hui::ui::text(list, fonts.display, fonts.display.font->fit(title, 88.0f, 1150.0f),
+                      x - 4.0f, 304.0f, 88.0f, untitled ? kWhite.with_alpha(0.45f) : kWhite);
+
+        // "<system>  ·  <title id>  ·  <ROM>", as the concept's genre · year · studio.
+        const std::string rom = forwarder_.rom.empty() ? std::string("no ROM") : forwarder_.rom;
+        (void)std::snprintf(text, sizeof(text), "%s  \xC2\xB7  %s  \xC2\xB7  %s",
+                            target_display_name(forwarder_.target).c_str(),
+                            forwarder_.title_id.c_str(), rom.c_str());
+        hui::ui::text(list, fonts.regular, fonts.regular.font->fit(text, 26.0f, 1150.0f), x,
+                      358.0f, 26.0f, kWhite.with_alpha(0.78f));
+
+        // The blurb: what the tile will do, and what the preview is showing.
+        std::string blurb = "Launches " + target_display_name(forwarder_.target) +
+                            (forwarder_.rom.empty() ? std::string(" without a ROM.")
+                                                    : std::string(" with the ROM above."));
+        if (has_background() && background_tex_ != 0)
+            blurb += " Its background is behind this screen";
+        if (has_music() && context.music != nullptr && context.music->playing())
+            blurb += (has_background() && background_tex_ != 0) ? " and its selection music is playing."
+                                                                  : " Its selection music is playing.";
+        else if (has_background() && background_tex_ != 0)
+            blurb += ".";
+        hui::ui::paragraph(list, fonts.regular, blurb, x, 414.0f, 28.0f, 820.0f, 40.0f,
+                           kWhite.with_alpha(0.86f), 2);
+
+        // Completeness, where the concept shows play progress.
+        const int parts = 5;
+        const int done = (forwarder_.display_name.empty() ? 0 : 1) +
+                         (forwarder_.target.empty() ? 0 : 1) + (has_icon() ? 1 : 0) +
+                         (has_background() ? 1 : 0) + (has_music() ? 1 : 0);
+        const float progress = static_cast<float>(done) / static_cast<float>(parts);
+        const Rect bar{x, 496.0f, 420.0f, 8.0f};
+        list.rounded_rect(bar, 4.0f, kWhite.with_alpha(0.18f));
+        if (done > 0)
+            list.rounded_rect({bar.x, bar.y, std::max(8.0f, bar.w * progress * in), bar.h}, 4.0f,
+                              tint);
+        const bool ready = !forwarder_.display_name.empty() && !forwarder_.target.empty() &&
+                           has_icon();
+        (void)std::snprintf(text, sizeof(text), "%d of %d set  \xC2\xB7  %s", done, parts,
+                            ready ? (editing_ ? "ready to save" : "ready to generate")
+                                  : "name, target and icon are required");
+        hui::ui::text(list, fonts.regular, text, bar.x + bar.w + 24.0f, 508.0f, 22.0f,
+                      kWhite.with_alpha(0.7f));
+        list.pop_opacity();
+    }
+
+    // The concept's frosted details sheet, with the form where its artwork
+    // and blurb go and its three stat tiles reporting the presentation assets.
+    void draw_sheet(Context &context, hui::ui::Canvas &overlay) const
+    {
+        hui::gfx::DrawList &list = overlay.list;
+        const hui::ui::Fonts &fonts = context.fonts;
+        const Color tint = accent();
+        const float t = stagger(2, 0.1f, 0.5f);
+        const Rect sheet{kSheet.x, kSheet.y + 60.0f * (1.0f - t), kSheet.w, kSheet.h};
+        list.push_opacity(hui::tween::clamp01(t * 1.4f));
+        list.shadow({sheet.x, sheet.y + 20.0f, sheet.w, sheet.h}, 44.0f, 60.0f,
+                    Color::rgb(0x000000, 0.5f));
+        if (overlay.glass != 0)
+            list.glass(overlay.glass, sheet, 44.0f, kWhite);
+        list.rounded_rect(sheet, 44.0f,
+                          hui::gfx::mix(hui::gfx::mix(tint, kInk, 0.75f), kInk, 0.5f).with_alpha(0.62f));
+        list.bordered_rect(sheet, 44.0f, Color::rgb(0x000000, 0.0f), 1.5f, kWhite.with_alpha(0.22f));
+
+        // Stat tiles on the right: ICON / BACKGROUND / MUSIC.
+        const float tiles_x = sheet.x + sheet.w - 56.0f - (kTilePitch * 2.0f + kTileW);
+        const float tiles_y = sheet.y + 56.0f;
+        const char *labels[3] = {"ICON", "BACKGROUND", "MUSIC"};
+        for (int i = 0; i < 3; ++i)
+        {
+            const float appear = hui::tween::stagger(age_, 3 + i, 0.12f, 0.6f);
+            const Rect tile{tiles_x + static_cast<float>(i) * kTilePitch,
+                            tiles_y + 24.0f * (1.0f - appear), kTileW, kTileH};
+            list.push_opacity(appear);
+            list.rounded_rect(tile, 22.0f, kWhite.with_alpha(0.08f));
+            hui::ui::text(list, fonts.semibold, labels[i], tile.x + 22.0f, tile.y + 36.0f, 15.0f,
+                          kWhite.with_alpha(0.55f), hui::gfx::Align::left, 3.0f);
+            const char *value = "Missing";
+            Color value_color = kWhite.with_alpha(0.5f);
+            if (i == 0 && has_icon())
+            {
+                value = "Set";
+                value_color = kWhite;
+                if (icon_tex_ != 0)
+                    list.image(icon_tex_, {tile.x + tile.w - 22.0f - 56.0f, tile.y + 48.0f, 56.0f, 56.0f},
+                               hui::gfx::kFullUv, kWhite, 12.0f);
+            }
+            else if (i == 1)
+            {
+                value = has_background() ? "Set" : "None";
+                value_color = has_background() ? kWhite : kWhite.with_alpha(0.5f);
+            }
+            else if (i == 2)
+            {
+                const bool playing = context.music != nullptr && context.music->playing();
+                value = playing ? "Playing" : (has_music() ? "Set" : "None");
+                value_color = has_music() ? (playing ? tint : kWhite) : kWhite.with_alpha(0.5f);
+                if (playing)
+                {
+                    // A small level meter breathing with the music, as a sign of life.
+                    const float level = 0.5f + 0.5f * hui::ui::breathe(clock_, 1.1f);
+                    for (int b = 0; b < 4; ++b)
+                    {
+                        const float h = 10.0f + 22.0f * level *
+                                            (0.55f + 0.45f * std::sin(clock_ * 5.0f + b * 1.7f));
+                        list.rounded_rect({tile.x + tile.w - 22.0f - 44.0f + b * 11.0f,
+                                           tile.y + 96.0f - h, 7.0f, h},
+                                          3.0f, tint.with_alpha(0.9f));
+                    }
+                }
+            }
+            hui::ui::text(list, fonts.semibold, value, tile.x + 22.0f, tile.y + 92.0f, 34.0f,
+                          value_color);
+            list.pop_opacity();
+        }
+
+        // Under the tiles: where the row controls lead.
+        hui::ui::paragraph(list, fonts.regular,
+                           converting_ ? "Converting the audio to ATRAC9 online..."
+                                       : "Pick the icon from a file or SteamGridDB; backgrounds "
+                                         "and music are optional and previewed here.",
+                           tiles_x, tiles_y + kTileH + 44.0f, 22.0f, kTilePitch * 2.0f + kTileW,
+                           30.0f, kWhite.with_alpha(0.6f), 3);
+        list.pop_opacity();
     }
 
     std::span<const hui::ui::Hint> hints() const override
@@ -620,6 +869,7 @@ class EditScreen final : public Screen
     }
 
   private:
+    Context *context_;
     Forwarder forwarder_;
     Assets assets_;
     bool editing_;
@@ -630,10 +880,16 @@ class EditScreen final : public Screen
     mutable hui::ui::Dialog dialog_;
     mutable hui::ui::InputPrompt prompt_;
     mutable hui::ui::ToastStack toasts_;
+    float age_ = 0.0f;   // seconds since the screen opened (entrance stagger)
+    float clock_ = 0.0f; // free-running, for the artwork's float and the meter
 
     // Live preview.
-    std::uint32_t preview_tex_ = 0;
-    bool icon_dirty_ = false;  // set when art changes; enter() loads an existing icon
+    std::uint32_t icon_tex_ = 0;
+    std::uint32_t background_tex_ = 0;
+    bool icon_dirty_ = false;       // a new icon was picked
+    bool background_dirty_ = false; // a new background was picked
+    bool music_dirty_ = false;      // new music was picked or converted
+    bool existing_loaded_ = false;  // an existing forwarder's files were read
 
     // Online AT9 conversion worker.
     bool converting_ = false;

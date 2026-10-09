@@ -4,6 +4,7 @@
 #pragma once
 
 #include "app/settings.hpp"
+#include "audio/mixer.hpp"
 #include "gfx/renderer.hpp"
 #include "ui/feedback.hpp"
 #include "ui/fonts.hpp"
@@ -17,6 +18,7 @@ namespace fwd
 {
 
 class Screen;
+class PreviewMusic;
 
 // Shared by the app and its screens. Screens push and pop other screens
 // through it; the app owns the stack and runs the top one.
@@ -34,6 +36,8 @@ struct Context
     bool settings_changed = false; // main.cpp re-reads input settings
     bool theme_changed = false;    // the app restyles every screen
     bool quit = false;
+    hui::audio::Mixer *mixer = nullptr; // the app's mixer (main.cpp owns it)
+    PreviewMusic *music = nullptr;      // edit-screen preview music deck
 
     // Navigation requests, applied by the app between frames.
     std::vector<std::unique_ptr<Screen>> push_requests;

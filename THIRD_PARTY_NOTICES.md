@@ -18,6 +18,7 @@
 | [ShadowMountPlus](https://github.com/drakmor/ShadowMountPlus) | Directory-style deployment and hardware validation |
 | [ArkSama/PS5-Lapy-JB-Daemon](https://github.com/ArkSama/PS5-Lapy-JB-Daemon) | Original Lapy project and owned-root design |
 | [mpereiraesaa/PS5-Lapy-JB-Daemon](https://github.com/mpereiraesaa/PS5-Lapy-JB-Daemon) | Exact-title one-shot helper and cooperative elevation protocol |
+| [Thealexbarney/LibAtrac9](https://github.com/Thealexbarney/LibAtrac9) | Software ATRAC9 decoder (MIT) vendored in `src/third_party/libatrac9/`, used to play a forwarder's selection music in the edit screen's live preview |
 
 ## Native build dependencies
 

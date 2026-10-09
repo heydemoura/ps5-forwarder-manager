@@ -373,4 +373,82 @@ bool write_png_file(const char *path, const unsigned char *rgba, int w, int h)
     return stbi_write_png(path, w, h, 4, rgba, w * 4) != 0;
 }
 
+namespace {
+
+// Reads `bits` bits from a 128-bit block, LSB first.
+std::uint32_t bc7_bits(const unsigned char *block, int &pos, int bits) {
+    std::uint32_t value = 0;
+    for (int i = 0; i < bits; ++i, ++pos)
+        value |= static_cast<std::uint32_t>((block[pos >> 3] >> (pos & 7)) & 1u) << i;
+    return value;
+}
+
+// Decodes one mode-6 block to 16 RGBA pixels (row-major). False if the block
+// is not mode 6.
+bool bc7_decode_mode6(const unsigned char *block, unsigned char out[64]) {
+    int pos = 0;
+    if (bc7_bits(block, pos, 7) != 0x40u)  // mode 6: six zero bits then a one
+        return false;
+    std::uint32_t e[8];                        // R0 R1 G0 G1 B0 B1 A0 A1, 7 bits each
+    for (std::uint32_t &v : e) v = bc7_bits(block, pos, 7);
+    const std::uint32_t p0 = bc7_bits(block, pos, 1);
+    const std::uint32_t p1 = bc7_bits(block, pos, 1);
+    const std::uint32_t c0[4] = {(e[0] << 1) | p0, (e[2] << 1) | p0, (e[4] << 1) | p0,
+                                 (e[6] << 1) | p0};
+    const std::uint32_t c1[4] = {(e[1] << 1) | p1, (e[3] << 1) | p1, (e[5] << 1) | p1,
+                                 (e[7] << 1) | p1};
+    static const std::uint32_t kWeights[16] = {0,  4,  9,  13, 17, 21, 26, 30,
+                                               34, 38, 43, 47, 51, 55, 60, 64};
+    for (int i = 0; i < 16; ++i) {
+        const std::uint32_t index = bc7_bits(block, pos, i == 0 ? 3 : 4);
+        const std::uint32_t w = kWeights[index];
+        for (int ch = 0; ch < 4; ++ch)
+            out[i * 4 + ch] = static_cast<unsigned char>(
+                (c0[ch] * (64u - w) + c1[ch] * w + 32u) >> 6);
+    }
+    return true;
+}
+
+std::uint32_t get_u32(const unsigned char *p) {
+    return static_cast<std::uint32_t>(p[0]) | (static_cast<std::uint32_t>(p[1]) << 8) |
+           (static_cast<std::uint32_t>(p[2]) << 16) | (static_cast<std::uint32_t>(p[3]) << 24);
+}
+
+}  // namespace
+
+bool decode_bc7_dds(const unsigned char *dds, std::size_t size, int &w, int &h,
+                    std::vector<unsigned char> &out_rgba, int max_width) {
+    if (dds == nullptr || size < 148 || std::memcmp(dds, "DDS ", 4) != 0 ||
+        std::memcmp(dds + 84, "DX10", 4) != 0 || get_u32(dds + 128) != 98u)
+        return false;
+    const int height = static_cast<int>(get_u32(dds + 12));
+    const int width = static_cast<int>(get_u32(dds + 16));
+    if (width <= 0 || height <= 0 || (width & 3) != 0 || (height & 3) != 0)
+        return false;
+    const std::size_t blocks_x = static_cast<std::size_t>(width) / 4;
+    const std::size_t blocks_y = static_cast<std::size_t>(height) / 4;
+    if (size - 148 < blocks_x * blocks_y * 16) return false;
+
+    const int step = (max_width > 0 && width > max_width) ? 2 : 1;
+    w = width / step;
+    h = height / step;
+    out_rgba.assign(static_cast<std::size_t>(w) * h * 4, 0);
+    const unsigned char *block = dds + 148;
+    unsigned char px[64];
+    for (std::size_t by = 0; by < blocks_y; ++by) {
+        for (std::size_t bx = 0; bx < blocks_x; ++bx, block += 16) {
+            if (!bc7_decode_mode6(block, px)) return false;
+            for (int y = 0; y < 4; y += step) {
+                const std::size_t oy = (by * 4 + static_cast<std::size_t>(y)) / step;
+                for (int x = 0; x < 4; x += step) {
+                    const std::size_t ox = (bx * 4 + static_cast<std::size_t>(x)) / step;
+                    std::memcpy(&out_rgba[(oy * static_cast<std::size_t>(w) + ox) * 4],
+                                &px[(y * 4 + x) * 4], 4);
+                }
+            }
+        }
+    }
+    return true;
+}
+
 }  // namespace fwd
