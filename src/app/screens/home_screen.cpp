@@ -19,7 +19,6 @@
 #include "gfx/backdrop_spec.hpp"
 #include "gfx/renderer.hpp"
 #include "ui/components/dialog.hpp"
-#include "ui/components/tabs.hpp"
 #include "ui/fonts.hpp"
 #include "ui/glyphs.hpp"
 #include "ui/motion.hpp"
@@ -31,6 +30,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace fwd
@@ -70,10 +70,6 @@ class HomeScreen final : public Screen
     void restyle(Context &context) override
     {
         dialog_.style.theme = context.theme;
-        tabs_.style.theme = context.theme;
-        tabs_.style.kind = hui::ui::TabKind::underline;
-        tabs_.style.on_page = true;
-        tabs_.style.text_size = 24.0f;
     }
 
     void release_textures()
@@ -140,20 +136,8 @@ class HomeScreen final : public Screen
             if (std::find(systems_.begin(), systems_.end(), name) == systems_.end())
                 systems_.push_back(name);
         }
-        std::vector<hui::ui::TabItem> tab_items;
-        tab_items.push_back({"All", static_cast<int>(forwarders_.size()), false, 0});
-        for (const std::string &name : systems_)
-        {
-            int count = 0;
-            for (const Forwarder &f : forwarders_)
-                if (target_display_name(f.target) == name)
-                    ++count;
-            tab_items.push_back({name, count, false, 0});
-        }
-        if (active_tab_ >= static_cast<int>(tab_items.size()))
+        if (active_tab_ >= 1 + static_cast<int>(systems_.size()))
             active_tab_ = 0;
-        tabs_.set_tabs(std::move(tab_items));
-        tabs_.set_active(active_tab_, true);
         rebuild_visible();
         if (focus_ >= tile_count())
             focus_ = std::max(0, tile_count() - 1);
@@ -181,7 +165,6 @@ class HomeScreen final : public Screen
         if (count <= 1)
             return;
         active_tab_ = ((tab % count) + count) % count;
-        tabs_.set_active(active_tab_, false);
         feedback.play(hui::audio::Cue::tab);
         rebuild_visible();
         focus_ = 0;
@@ -276,7 +259,6 @@ class HomeScreen final : public Screen
         scroll_.reveal(start, start + kCard * kCardGrow, hui::gfx::kVirtualWidth - kMargin,
                        kMargin * 2.2f);
         scroll_.update(dt, 12.0f);
-        tabs_.update(dt);
         ring_.target(card_rect(focus_, true));
         ring_.update(dt, 20.0f);
         nudge_.update(dt, 9.0f);
@@ -456,18 +438,37 @@ class HomeScreen final : public Screen
 
     void draw_header(Context &context, hui::gfx::DrawList &list) const
     {
+        // The Aurora Shelf top bar (ps5-homebrew-ui src/concepts/aurora.cpp,
+        // draw_top_bar): the tabs are plain text labels running from the left
+        // margin; the active one is semibold at full white with a 4px accent
+        // underline, the rest are regular at 55% white. The whole bar fades and
+        // slides down into place on entry. Our systems take the concept's
+        // {Home, Library, ...} slots, and the total count sits where the
+        // concept puts its clock.
+        const hui::ui::Fonts &fonts = context.fonts;
         const float in = tween_stagger(0, 0.05f, 0.5f);
         list.push_opacity(in);
-        // Aurora-style top bar: the system tabs run across the top of the
-        // screen, with the forwarder count on the right.
-        tabs_.set_bounds({kMargin, 62.0f, 1150.0f, 56.0f});
-        hui::ui::Canvas tab_canvas{list, context.fonts, 0, clock_};
-        tabs_.draw(tab_canvas);
+        const Color accent = palette_[3].value();
+        const float baseline = 92.0f - 10.0f * (1.0f - in);
+        const int tab_count = 1 + static_cast<int>(systems_.size());
+        float x = kMargin;
+        for (int i = 0; i < tab_count; ++i)
+        {
+            const std::string_view label =
+                i == 0 ? std::string_view("All") : std::string_view(systems_[i - 1]);
+            const bool active = i == active_tab_;
+            const float w = hui::ui::text(list, active ? fonts.semibold : fonts.regular, label, x,
+                                          baseline, 26.0f,
+                                          kWhite.with_alpha(active ? 1.0f : 0.55f));
+            if (active)
+                list.rounded_rect({x, 104.0f, w, 4.0f}, 2.0f, accent);
+            x += w + 44.0f;
+        }
         char count[64];
         (void)std::snprintf(count, sizeof(count), "%zu forwarder%s", forwarders_.size(),
                             forwarders_.size() == 1 ? "" : "s");
-        hui::ui::text(list, context.fonts.regular, count, hui::gfx::kVirtualWidth - kMargin, 98,
-                      24, kWhite.with_alpha(0.6f), hui::gfx::Align::right);
+        hui::ui::text(list, fonts.regular, count, hui::gfx::kVirtualWidth - kMargin, baseline, 26.0f,
+                      kWhite.with_alpha(0.8f), hui::gfx::Align::right);
         list.pop_opacity();
     }
 
@@ -700,7 +701,6 @@ class HomeScreen final : public Screen
     std::vector<std::string> systems_;          // tab labels after "All"
     std::vector<int> visible_;                  // forwarders_ indices in the active tab
     int active_tab_ = 0;                        // 0 = All
-    mutable hui::ui::TabBar tabs_;
     int focus_ = 0;
     int shown_ = 0;
     int previous_ = 0;
