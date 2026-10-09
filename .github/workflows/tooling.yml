@@ -229,5 +229,5 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --verify-tag \
               --generate-notes \
-              --title "PS5 Native App Boilerplate $GITHUB_REF_NAME"
+              --title "$GITHUB_REF_NAME"
           fi
