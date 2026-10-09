@@ -577,8 +577,8 @@ class HomeScreen final : public Screen
             if (rect.x > hui::gfx::kVirtualWidth || rect.x + rect.w < -80.0f)
                 continue;
             // Drop shadow under every icon, for depth.
-            list.shadow({rect.x, rect.y + 12.0f, rect.w, rect.h}, 18.0f, 22.0f,
-                        Color::rgb(0x000000, 0.5f));
+            list.shadow({rect.x, rect.y + 18.0f, rect.w, rect.h}, 28.0f, 34.0f,
+                        Color::rgb(0x000000, 0.65f));
             draw_tile_art(list, rect, tile, 0.82f, 22.0f);
         }
         list.pop_opacity();
