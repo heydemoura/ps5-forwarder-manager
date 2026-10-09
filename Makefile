@@ -97,6 +97,7 @@ $(LAUNCHER_ELF): $(FWD_STD)/template/launcher.elf
 	@cp $< $@
 
 $(FORWARDER_EBOOT): $(FWD_STD)/template/eboot.bin $(FWD_STD)/template/sce_module/libc.prx
+	@mkdir -p assets/forwarder-template/sce_module
 	@cp $(FWD_STD)/template/eboot.bin $@
 	@cp $(FWD_STD)/template/sce_module/libc.prx assets/forwarder-template/sce_module/libc.prx
 
