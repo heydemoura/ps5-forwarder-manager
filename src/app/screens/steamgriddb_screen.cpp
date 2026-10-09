@@ -14,6 +14,7 @@
 #include "net/steamgriddb.hpp"
 #include "platform/ps5/system.hpp"
 #include "ui/components/grid.hpp"
+#include "ui/components/progress.hpp"
 #include "ui/components/input_prompt.hpp"
 #include "ui/components/list.hpp"
 #include "ui/fonts.hpp"
@@ -91,6 +92,13 @@ class SteamGridScreen final : public Screen
     void restyle(Context &context) override
     {
         games_.style.theme = context.theme;
+        spinner_.style.theme = context.theme;
+        spinner_.style.kind = hui::ui::SpinnerKind::arc;
+        bar_.style.theme = context.theme;
+        bar_.style.mode = hui::ui::ProgressMode::determinate;
+        bar_.style.placement = hui::ui::LabelPlacement::above;
+        bar_.style.sheen = true;
+        bar_.label = "Thumbnails";
         games_.style.cards = true;
         grid_.style.theme = context.theme;
         prompt_.style.theme = context.theme;
@@ -118,6 +126,8 @@ class SteamGridScreen final : public Screen
         std::mutex mutex;
         std::atomic<bool> done{false};
         std::atomic<bool> ok{false};
+    std::atomic<int> progress{0}; // thumbnails downloaded so far
+    std::atomic<int> total{0};    // ... out of
         std::string error;
         std::vector<sgdb::Game> games;
         std::vector<sgdb::Asset> assets;
@@ -148,11 +158,15 @@ class SteamGridScreen final : public Screen
         pending_ = job;
         shared_.done.store(false);
         shared_.ok.store(false);
+        shared_.progress.store(0);
+        shared_.total.store(0);
         {
             std::lock_guard<std::mutex> lock(shared_.mutex);
             shared_.error.clear();
         }
         phase_ = Phase::busy;
+        spinner_.set_spinning(true, true);
+        bar_.set_value(0.0f, true);
         pthread_attr_t attr;
         pthread_attr_init(&attr);
         pthread_attr_setstacksize(&attr, 1u << 20);
@@ -198,11 +212,13 @@ class SteamGridScreen final : public Screen
                 assets_copy = shared_.assets;
             }
             thumbs.resize(assets_copy.size());
+            shared_.total.store(static_cast<int>(assets_copy.size()));
             for (std::size_t i = 0; i < assets_copy.size(); ++i)
             {
                 const std::string &url =
                     assets_copy[i].thumb.empty() ? assets_copy[i].url : assets_copy[i].thumb;
                 sgdb::download(url, thumbs[i]);
+                shared_.progress.store(static_cast<int>(i + 1));
             }
             std::lock_guard<std::mutex> lock(shared_.mutex);
             shared_.thumbs = std::move(thumbs);
@@ -333,6 +349,12 @@ class SteamGridScreen final : public Screen
         }
         if (phase_ == Phase::busy)
         {
+            spinner_.update(dt);
+            const int total = shared_.total.load();
+            if (pending_ == Job::thumbs && total > 0)
+                bar_.set_value(static_cast<float>(shared_.progress.load()) /
+                               static_cast<float>(total));
+            bar_.update(dt);
             if (shared_.done.load())
                 on_job_done(context);
             return;
@@ -439,8 +461,21 @@ class SteamGridScreen final : public Screen
 
         if (phase_ == Phase::busy)
         {
-            hui::ui::text(scene.list, context.fonts.regular, "Working...", 96.0f, 400.0f, 30.0f,
+            // The kit's Spinner says "working, for an unknown time"; the
+            // thumbnail job also knows how far along it is, so it gets a bar.
+            const char *caption = pending_ == Job::search   ? "Searching SteamGridDB..."
+                                  : pending_ == Job::assets ? "Finding artwork..."
+                                  : pending_ == Job::thumbs ? "Loading artwork..."
+                                                            : "Downloading the image...";
+            spinner_.set_bounds({96.0f, 316.0f, 56.0f, 56.0f});
+            spinner_.draw(scene);
+            hui::ui::text(scene.list, context.fonts.regular, caption, 176.0f, 354.0f, 30.0f,
                           muted);
+            if (pending_ == Job::thumbs && shared_.total.load() > 0)
+            {
+                bar_.set_bounds({96.0f, 400.0f, 600.0f, 44.0f});
+                bar_.draw(scene);
+            }
         }
         else if (phase_ == Phase::games)
         {
@@ -487,6 +522,8 @@ class SteamGridScreen final : public Screen
     mutable hui::ui::ListView games_;
     mutable hui::ui::GridView grid_;
     mutable hui::ui::InputPrompt prompt_;
+    mutable hui::ui::Spinner spinner_;
+    mutable hui::ui::ProgressBar bar_;
 };
 
 } // namespace
