@@ -291,6 +291,8 @@ class SteamGridScreen final : public Screen
         phase_ = Phase::busy;
         spinner_.set_spinning(true, true);
         bar_.set_value(0.0f, true);
+        if (job == Job::search)
+            note_.target = 1.0f; // "Looking it up", the moment the keyboard leaves
         if (job == Job::assets)
         {
             // The old shelf is cleared while the new one is fetched.
@@ -661,6 +663,9 @@ class SteamGridScreen final : public Screen
         animate(context, dt);
         if (phase_ == Phase::busy)
         {
+            // Keep the keyboard's fade-out running: it closed on submit and
+            // must leave now, not when the search returns.
+            prompt_.update(dt);
             spinner_.update(dt);
             const int total = shared_.total.load();
             if (pending_ == Job::thumbs && total > 0)
