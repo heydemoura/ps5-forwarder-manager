@@ -12,7 +12,7 @@
  * self_update_status values. Every step is also written to the kernel log and
  * to /download0/self-update.txt, each line starting "SELF-UPDATE:".
  */
-#include "../../../src/demo_renderer.hpp"
+#include "../demo_renderer.hpp"
 #include "../self_update.h"
 #include "update_check.h"
 

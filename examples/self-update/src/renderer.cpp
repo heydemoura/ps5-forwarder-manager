@@ -7,4 +7,4 @@
  * in a source that lives elsewhere in the repository. In your own app, copy
  * the file into src/ instead.
  */
-#include "../../../src/demo_renderer.cpp"
+#include "../demo_renderer.inc"
