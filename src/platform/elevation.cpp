@@ -50,7 +50,8 @@ bool data_accessible() noexcept
         const int fd = ::open(probe, O_WRONLY | O_CREAT | O_TRUNC, 0666);
         if (fd >= 0)
         {
-            wrote = ::write(fd, payload, static_cast<std::size_t>(payload_length)) == payload_length;
+            wrote =
+                ::write(fd, payload, static_cast<std::size_t>(payload_length)) == payload_length;
             ::close(fd);
         }
     }
@@ -65,8 +66,8 @@ bool data_accessible() noexcept
         {
             const ssize_t got = ::read(fd, readback, sizeof(readback) - 1);
             ::close(fd);
-            matched = got == payload_length && std::memcmp(readback, payload,
-                                                           static_cast<std::size_t>(got)) == 0;
+            matched = got == payload_length &&
+                      std::memcmp(readback, payload, static_cast<std::size_t>(got)) == 0;
         }
     }
     (void)::unlink(probe);

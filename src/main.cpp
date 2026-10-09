@@ -100,6 +100,18 @@ int main()
     sys::log("[FWD] entry title=%s root=%s", paths::title_id().c_str(), paths::app_root().c_str());
     sys::log("[FWD] storage dir=%d", save::ensure_directory(kDataRoot) ? 1 : 0);
 
+    // A pull-request build carries a label ("PR 12, 1a2b3c4") so it can be
+    // told apart on the console. Read it through /app0 now, before elevation
+    // moves the process root.
+    std::string build_label;
+    if (save::read_file("/app0/build-label.txt", &build_label, 256u))
+    {
+        while (!build_label.empty() && (build_label.back() == '\n' || build_label.back() == '\r' ||
+                                        build_label.back() == ' '))
+            build_label.pop_back();
+        sys::log("[FWD] build label: %s", build_label.c_str());
+    }
+
     // Elevation first: the Lapy helper is handed to the local ELF loader
     // while the process is still single-threaded. Only ok permits /data use.
     const std::string helper = paths::app_root() + "/lapy.elf";
@@ -107,7 +119,8 @@ int main()
     const elevation::Status elevated =
         elevation::request(elevation::Capability::filesystem, helper.c_str());
     sys::log("[FWD] elevation status=%s path=%s in %lld ms", status_name(elevated),
-             elevation::path(), static_cast<long long>((sys::monotonic_us() - elevate_start) / 1000));
+             elevation::path(),
+             static_cast<long long>((sys::monotonic_us() - elevate_start) / 1000));
     // The process root may have changed: find the app's files again.
     paths::refresh();
     sys::log("[FWD] app root after elevation: %s", paths::app_root().c_str());
@@ -162,7 +175,9 @@ int main()
 
     fwd::App app(fonts, renderer, kDataRoot, mixer, elevated == elevation::Status::ok,
                  status_name(elevated));
-    const std::string version = read_content_version(paths::app_root() + "/sce_sys/param.json");
+    std::string version = read_content_version(paths::app_root() + "/sce_sys/param.json");
+    if (!build_label.empty())
+        version += " (" + build_label + ")";
     app.set_version(version);
     sys::log("[FWD] version %s", version.empty() ? "unknown" : version.c_str());
 
@@ -273,8 +288,8 @@ int main()
                     shot_dir = root.substr(0, slash) + "/download0";
             }
             char shot_path[160];
-            (void)std::snprintf(shot_path, sizeof(shot_path), "%s/shot-%d.png",
-                                shot_dir.c_str(), shot_index++);
+            (void)std::snprintf(shot_path, sizeof(shot_path), "%s/shot-%d.png", shot_dir.c_str(),
+                                shot_index++);
             const bool ok = fwd::write_png_file(shot_path, flip.data(), kShotW, kShotH);
             sys::log("[FWD] screenshot %s ok=%d", shot_path, ok ? 1 : 0);
             // Dev-only: when /data/ps5fwdgen-dev/upload.txt holds "host:port",
@@ -285,14 +300,14 @@ int main()
                 if (hui::save::read_file("/data/ps5fwdgen-dev/upload.txt", &host, 256u) &&
                     !host.empty())
                 {
-                    while (!host.empty() && (host.back() == '\n' || host.back() == '\r' ||
-                                             host.back() == ' '))
+                    while (!host.empty() &&
+                           (host.back() == '\n' || host.back() == '\r' || host.back() == ' '))
                         host.pop_back();
                     char url[160];
                     (void)std::snprintf(url, sizeof(url), "http://%s/shot?w=%d&h=%d&n=%d",
                                         host.c_str(), kShotW, kShotH, shot_index - 1);
-                    const net::Response r = net::post_bytes(
-                        url, flip, "application/octet-stream", 15000);
+                    const net::Response r =
+                        net::post_bytes(url, flip, "application/octet-stream", 15000);
                     sys::log("[FWD] screenshot upload http=%ld curl=%d", r.status, r.curl_code);
                 }
             }

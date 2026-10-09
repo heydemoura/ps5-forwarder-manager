@@ -181,7 +181,8 @@ class ArtScreen final : public Screen
         }
         else
         {
-            rows.push_back({"1  Copy", "Put the image anywhere under /data, for example with FTP."});
+            rows.push_back(
+                {"1  Copy", "Put the image anywhere under /data, for example with FTP."});
             rows.push_back({"2  Find", "Browse to it in the file picker; only images are listed."});
             rows.push_back({"3  Use", kind_ == ArtKind::icon
                                           ? "It is centre-cropped to a square, 512x512."
@@ -205,9 +206,9 @@ class ArtScreen final : public Screen
     void finish_from_encoded(Context &context, const std::vector<unsigned char> &raw)
     {
         (void)context;
-        std::vector<unsigned char> encoded =
-            kind_ == ArtKind::icon ? make_icon_png(raw.data(), raw.size())
-                                   : make_background_dds(raw.data(), raw.size());
+        std::vector<unsigned char> encoded = kind_ == ArtKind::icon
+                                                 ? make_icon_png(raw.data(), raw.size())
+                                                 : make_background_dds(raw.data(), raw.size());
         if (encoded.empty())
         {
             toasts_.push(hui::ui::StatusKind::danger, "That image could not be processed",
@@ -239,16 +240,15 @@ class ArtScreen final : public Screen
             if (cards_.focus() == kSteamGridDb)
             {
                 context.push(make_steamgriddb_screen(
-                    context, kind_, suggested_,
-                    [self, &context](std::vector<unsigned char> raw)
+                    context, kind_, suggested_, [self, &context](std::vector<unsigned char> raw)
                     { self->finish_from_encoded(context, raw); }));
             }
             else
             {
-                context.push(make_file_picker_screen(
-                    context, "/data", {".png", ".jpg", ".jpeg", ".bmp"},
-                    [self, &context](const std::string &path)
-                    { self->finish_from_file(context, path); }));
+                context.push(make_file_picker_screen(context, "/data",
+                                                     {".png", ".jpg", ".jpeg", ".bmp"},
+                                                     [self, &context](const std::string &path)
+                                                     { self->finish_from_file(context, path); }));
             }
         }
         refresh_how();
@@ -328,8 +328,8 @@ class ArtScreen final : public Screen
 
         const float tx = art.x + art.w + 32.0f;
         const float tw = cell.x + cell.w - pad - tx;
-        hui::ui::text(list, fonts.semibold, index == kSteamGridDb ? "ONLINE" : "ON THE CONSOLE",
-                      tx, cell.y + pad + 22.0f, 16.0f, disabled ? theme.text_muted : theme.accent,
+        hui::ui::text(list, fonts.semibold, index == kSteamGridDb ? "ONLINE" : "ON THE CONSOLE", tx,
+                      cell.y + pad + 22.0f, 16.0f, disabled ? theme.text_muted : theme.accent,
                       hui::gfx::Align::left, 3.0f);
         hui::ui::text(list, fonts.display, item.title, tx - 2.0f, cell.y + pad + 72.0f, 38.0f,
                       disabled ? theme.text_muted : theme.text);
@@ -367,7 +367,8 @@ class ArtScreen final : public Screen
     {
         const hui::ui::Theme &theme = context.theme;
         const Color text = theme.page_text.a > 0.0f ? theme.page_text : theme.text;
-        const Color muted = theme.page_text_muted.a > 0.0f ? theme.page_text_muted : theme.text_muted;
+        const Color muted =
+            theme.page_text_muted.a > 0.0f ? theme.page_text_muted : theme.text_muted;
         hui::ui::text(scene.list, context.fonts.display,
                       kind_ == ArtKind::icon ? "Where should the icon come from?"
                                              : "Where should the background come from?",
@@ -414,12 +415,11 @@ class ArtScreen final : public Screen
 
 } // namespace
 
-std::unique_ptr<Screen>
-make_art_screen(Context &context, ArtKind kind, std::string suggested_query,
-                std::function<void(std::vector<unsigned char>)> on_ready)
+std::unique_ptr<Screen> make_art_screen(Context &context, ArtKind kind, std::string suggested_query,
+                                        std::function<void(std::vector<unsigned char>)> on_ready)
 {
     return std::make_unique<ArtScreen>(context, kind, std::move(suggested_query),
-                                      std::move(on_ready));
+                                       std::move(on_ready));
 }
 
 } // namespace fwd

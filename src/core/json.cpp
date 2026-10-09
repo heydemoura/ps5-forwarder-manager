@@ -67,8 +67,7 @@ void write_escaped(std::string &out, std::string_view text)
 
 void write_number(std::string &out, double value)
 {
-    if (value == static_cast<double>(static_cast<long long>(value)) &&
-        std::abs(value) < 1e15)
+    if (value == static_cast<double>(static_cast<long long>(value)) && std::abs(value) < 1e15)
     {
         char buffer[32];
         (void)std::snprintf(buffer, sizeof(buffer), "%lld", static_cast<long long>(value));
@@ -83,7 +82,9 @@ void write_number(std::string &out, double value)
 class Parser
 {
   public:
-    Parser(std::string_view text, std::string *error) : text_(text), error_(error) {}
+    Parser(std::string_view text, std::string *error) : text_(text), error_(error)
+    {
+    }
 
     bool run(Value &out)
     {

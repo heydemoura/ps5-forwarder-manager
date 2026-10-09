@@ -27,8 +27,8 @@ struct Target
 {
     const char *title_id;
     const char *name;
-    bool rom_arg;          // takes --rom <file>
-    bool exit_after_game;  // supports --exit-after-game
+    bool rom_arg;         // takes --rom <file>
+    bool exit_after_game; // supports --exit-after-game
 };
 
 // The built-in emulator targets the site offers, plus "generic".
@@ -54,7 +54,6 @@ struct Forwarder
     // Build the launch argument list the way the site does: --rom first (when
     // set), then the extra arguments, then --exit-after-game (when set).
     std::vector<Argument> resolved_args() const;
-
 };
 
 // Make a fresh, unused PPSA99xxx id (99200..99899), avoiding ids already in

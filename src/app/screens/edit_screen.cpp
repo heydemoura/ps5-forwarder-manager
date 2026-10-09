@@ -213,8 +213,8 @@ class EditScreen final : public Screen
             has_music() ? "set" : "(optional)";
 
         form_.add_header("");
-        form_.add_action(RowGenerate, editing_ ? "Save forwarder" : "Generate forwarder")
-            .chevron = false;
+        form_.add_action(RowGenerate, editing_ ? "Save forwarder" : "Generate forwarder").chevron =
+            false;
         if (editing_)
         {
             hui::ui::FormRow &del = form_.add_action(RowDelete, "Delete forwarder");
@@ -226,8 +226,7 @@ class EditScreen final : public Screen
 
     void save(Context &context, hui::ui::Feedback &feedback)
     {
-        forwarder_.exit_after_game =
-            current_target().exit_after_game && forwarder_.exit_after_game;
+        forwarder_.exit_after_game = current_target().exit_after_game && forwarder_.exit_after_game;
         if (forwarder_.display_name.empty())
         {
             toasts_.push(hui::ui::StatusKind::warning, "A display name is required");
@@ -354,7 +353,8 @@ class EditScreen final : public Screen
                 [self](const std::string &path)
                 {
                     const std::size_t slash = path.find_last_of('/');
-                    self->forwarder_.rom = slash == std::string::npos ? path : path.substr(slash + 1);
+                    self->forwarder_.rom =
+                        slash == std::string::npos ? path : path.substr(slash + 1);
                     self->dirty_ = true;
                 }));
             break;
@@ -362,28 +362,26 @@ class EditScreen final : public Screen
         case RowIcon:
         {
             EditScreen *self = this;
-            context.push(make_art_screen(
-                context, ArtKind::icon, forwarder_.display_name,
-                [self](std::vector<unsigned char> bytes)
-                {
-                    self->assets_.icon_png = std::move(bytes);
-                    self->dirty_ = true;
-                    self->icon_dirty_ = true;
-                }));
+            context.push(make_art_screen(context, ArtKind::icon, forwarder_.display_name,
+                                         [self](std::vector<unsigned char> bytes)
+                                         {
+                                             self->assets_.icon_png = std::move(bytes);
+                                             self->dirty_ = true;
+                                             self->icon_dirty_ = true;
+                                         }));
             break;
         }
         case RowBackground:
         {
             EditScreen *self = this;
-            context.push(make_art_screen(
-                context, ArtKind::background, forwarder_.display_name,
-                [self](std::vector<unsigned char> bytes)
-                {
-                    self->assets_.pic0_dds = bytes;
-                    self->assets_.pic1_dds = std::move(bytes);
-                    self->dirty_ = true;
-                    self->background_dirty_ = true;
-                }));
+            context.push(make_art_screen(context, ArtKind::background, forwarder_.display_name,
+                                         [self](std::vector<unsigned char> bytes)
+                                         {
+                                             self->assets_.pic0_dds = bytes;
+                                             self->assets_.pic1_dds = std::move(bytes);
+                                             self->dirty_ = true;
+                                             self->background_dirty_ = true;
+                                         }));
             break;
         }
         case RowMusic:
@@ -396,8 +394,8 @@ class EditScreen final : public Screen
                     std::vector<unsigned char> bytes;
                     if (!read_whole_file(path, bytes))
                         return;
-                    const bool is_at9 = path.size() > 4 &&
-                                        path.compare(path.size() - 4, 4, ".at9") == 0;
+                    const bool is_at9 =
+                        path.size() > 4 && path.compare(path.size() - 4, 4, ".at9") == 0;
                     if (is_at9)
                     {
                         self->assets_.music_at9 = std::move(bytes);
@@ -408,9 +406,9 @@ class EditScreen final : public Screen
                     {
                         // Non-AT9 audio is converted online, as the site does.
                         const std::size_t slash = path.find_last_of('/');
-                        self->start_convert(std::move(bytes),
-                                            slash == std::string::npos ? path
-                                                                       : path.substr(slash + 1));
+                        self->start_convert(std::move(bytes), slash == std::string::npos
+                                                                  ? path
+                                                                  : path.substr(slash + 1));
                     }
                 }));
             break;
@@ -419,7 +417,8 @@ class EditScreen final : public Screen
             save(context, feedback);
             break;
         case RowDelete:
-            dialog_.open({hui::ui::StatusKind::danger, "Delete this forwarder?",
+            dialog_.open({hui::ui::StatusKind::danger,
+                          "Delete this forwarder?",
                           forwarder_.display_name + "\n" + forwarder_.title_id,
                           {{"Cancel", hui::ui::ButtonKind::secondary, false},
                            {"Delete", hui::ui::ButtonKind::primary, true}},
@@ -646,8 +645,7 @@ class EditScreen final : public Screen
                       static_cast<long long>((hui::sys::monotonic_us() - started) / 1000),
                       clip.error.c_str());
         if (!clip.ok())
-            toasts_.push(hui::ui::StatusKind::warning, "Could not play the music",
-                         clip.error);
+            toasts_.push(hui::ui::StatusKind::warning, "Could not play the music", clip.error);
     }
 
     void release_textures()
@@ -714,13 +712,13 @@ class EditScreen final : public Screen
         char text[160];
         list.push_opacity(in);
 
-        const float bob =
-            context.settings.reduced_motion ? 0.0f : std::sin(clock_ * 0.8f) * 6.0f;
+        const float bob = context.settings.reduced_motion ? 0.0f : std::sin(clock_ * 0.8f) * 6.0f;
         // About a fifth smaller than the concept's 440 so it clears the sheet
         // below; it keeps the concept's right edge.
         const Rect art{1404.0f + slide * 1.6f, 132.0f + bob, 352.0f, 352.0f};
         list.glow(art.inset(30.0f), 60.0f, 90.0f, tint.with_alpha(0.3f));
-        list.shadow({art.x, art.y + 26.0f, art.w, art.h}, 36.0f, 46.0f, Color::rgb(0x000000, 0.55f));
+        list.shadow({art.x, art.y + 26.0f, art.w, art.h}, 36.0f, 46.0f,
+                    Color::rgb(0x000000, 0.55f));
         if (icon_tex_ != 0)
         {
             list.image(icon_tex_, art, hui::gfx::kFullUv, kWhite, 36.0f);
@@ -738,18 +736,18 @@ class EditScreen final : public Screen
                       hui::ui::upper(editing_ ? "Edit forwarder" : "New forwarder"), x, 212.0f,
                       20.0f, tint, hui::gfx::Align::left, 4.0f);
         const bool untitled = forwarder_.display_name.empty();
-        const std::string title = untitled ? std::string("Untitled forwarder")
-                                           : forwarder_.display_name;
-        hui::ui::text(list, fonts.display, fonts.display.font->fit(title, 88.0f, 1150.0f),
-                      x - 4.0f, 304.0f, 88.0f, untitled ? kWhite.with_alpha(0.45f) : kWhite);
+        const std::string title =
+            untitled ? std::string("Untitled forwarder") : forwarder_.display_name;
+        hui::ui::text(list, fonts.display, fonts.display.font->fit(title, 88.0f, 1150.0f), x - 4.0f,
+                      304.0f, 88.0f, untitled ? kWhite.with_alpha(0.45f) : kWhite);
 
         // "<system>  ·  <title id>  ·  <ROM>", as the concept's genre · year · studio.
         const std::string rom = forwarder_.rom.empty() ? std::string("no ROM") : forwarder_.rom;
         (void)std::snprintf(text, sizeof(text), "%s  \xC2\xB7  %s  \xC2\xB7  %s",
                             target_display_name(forwarder_.target).c_str(),
                             forwarder_.title_id.c_str(), rom.c_str());
-        hui::ui::text(list, fonts.regular, fonts.regular.font->fit(text, 26.0f, 1150.0f), x,
-                      358.0f, 26.0f, kWhite.with_alpha(0.78f));
+        hui::ui::text(list, fonts.regular, fonts.regular.font->fit(text, 26.0f, 1150.0f), x, 358.0f,
+                      26.0f, kWhite.with_alpha(0.78f));
 
         // The blurb: what the tile will do, and what the preview is showing.
         std::string blurb = "Launches " + target_display_name(forwarder_.target) +
@@ -758,8 +756,9 @@ class EditScreen final : public Screen
         if (has_background() && background_tex_ != 0)
             blurb += " Its background is behind this screen";
         if (has_music() && context.music != nullptr && context.music->playing())
-            blurb += (has_background() && background_tex_ != 0) ? " and its selection music is playing."
-                                                                  : " Its selection music is playing.";
+            blurb += (has_background() && background_tex_ != 0)
+                         ? " and its selection music is playing."
+                         : " Its selection music is playing.";
         else if (has_background() && background_tex_ != 0)
             blurb += ".";
         hui::ui::paragraph(list, fonts.regular, blurb, x, 414.0f, 28.0f, 820.0f, 40.0f,
@@ -776,8 +775,8 @@ class EditScreen final : public Screen
         if (done > 0)
             list.rounded_rect({bar.x, bar.y, std::max(8.0f, bar.w * progress * in), bar.h}, 4.0f,
                               tint);
-        const bool ready = !forwarder_.display_name.empty() && !forwarder_.target.empty() &&
-                           has_icon();
+        const bool ready =
+            !forwarder_.display_name.empty() && !forwarder_.target.empty() && has_icon();
         (void)std::snprintf(text, sizeof(text), "%d of %d set  \xC2\xB7  %s", done, parts,
                             ready ? (editing_ ? "ready to save" : "ready to generate")
                                   : "name, target and icon are required");
@@ -800,9 +799,11 @@ class EditScreen final : public Screen
                     Color::rgb(0x000000, 0.5f));
         if (overlay.glass != 0)
             list.glass(overlay.glass, sheet, 44.0f, kWhite);
-        list.rounded_rect(sheet, 44.0f,
-                          hui::gfx::mix(hui::gfx::mix(tint, kInk, 0.75f), kInk, 0.5f).with_alpha(0.62f));
-        list.bordered_rect(sheet, 44.0f, Color::rgb(0x000000, 0.0f), 1.5f, kWhite.with_alpha(0.22f));
+        list.rounded_rect(
+            sheet, 44.0f,
+            hui::gfx::mix(hui::gfx::mix(tint, kInk, 0.75f), kInk, 0.5f).with_alpha(0.62f));
+        list.bordered_rect(sheet, 44.0f, Color::rgb(0x000000, 0.0f), 1.5f,
+                           kWhite.with_alpha(0.22f));
 
         // Stat tiles on the right: ICON / BACKGROUND / MUSIC.
         const float tiles_x = sheet.x + sheet.w - 56.0f - (kTilePitch * 2.0f + kTileW);
@@ -824,7 +825,8 @@ class EditScreen final : public Screen
                 value = "Set";
                 value_color = kWhite;
                 if (icon_tex_ != 0)
-                    list.image(icon_tex_, {tile.x + tile.w - 22.0f - 56.0f, tile.y + 48.0f, 56.0f, 56.0f},
+                    list.image(icon_tex_,
+                               {tile.x + tile.w - 22.0f - 56.0f, tile.y + 48.0f, 56.0f, 56.0f},
                                hui::gfx::kFullUv, kWhite, 12.0f);
             }
             else if (i == 1)
@@ -843,8 +845,9 @@ class EditScreen final : public Screen
                     const float level = 0.5f + 0.5f * hui::ui::breathe(clock_, 1.1f);
                     for (int b = 0; b < 4; ++b)
                     {
-                        const float h = 10.0f + 22.0f * level *
-                                            (0.55f + 0.45f * std::sin(clock_ * 5.0f + b * 1.7f));
+                        const float h =
+                            10.0f +
+                            22.0f * level * (0.55f + 0.45f * std::sin(clock_ * 5.0f + b * 1.7f));
                         list.rounded_rect({tile.x + tile.w - 22.0f - 44.0f + b * 11.0f,
                                            tile.y + 96.0f - h, 7.0f, h},
                                           3.0f, tint.with_alpha(0.9f));
@@ -878,7 +881,8 @@ class EditScreen final : public Screen
             {hui::ui::Button::triangle, "Generate"},
             {hui::ui::Button::circle, "Back"},
         };
-        return editing_ ? std::span<const hui::ui::Hint>(kEdit) : std::span<const hui::ui::Hint>(kNew);
+        return editing_ ? std::span<const hui::ui::Hint>(kEdit)
+                        : std::span<const hui::ui::Hint>(kNew);
     }
 
   private:

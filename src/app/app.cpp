@@ -55,7 +55,8 @@ struct App::Stack
 
 App::App(const hui::ui::Fonts &fonts, hui::gfx::Renderer &renderer, std::string data_root,
          hui::audio::Mixer &mixer, bool elevated, const char *elevation_status)
-    : context_(new Context{fonts, renderer, hui::ui::default_theme(), Settings{}}), stack_(new Stack)
+    : context_(new Context{fonts, renderer, hui::ui::default_theme(), Settings{}}),
+      stack_(new Stack)
 {
     music_ = std::make_unique<PreviewMusic>();
     music_->init(mixer);

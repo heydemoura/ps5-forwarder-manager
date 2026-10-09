@@ -69,8 +69,8 @@ Kind classify(const std::string &name)
     for (const char *s : {".zip", ".7z", ".rar", ".gz"})
         if (ends_with(name, s))
             return Kind::archive;
-    for (const char *s : {".nsp", ".xci", ".iso", ".pkg", ".nro", ".nca", ".rom", ".bin", ".chd",
-                          ".cso", ".elf"})
+    for (const char *s :
+         {".nsp", ".xci", ".iso", ".pkg", ".nro", ".nca", ".rom", ".bin", ".chd", ".cso", ".elf"})
         if (ends_with(name, s))
             return Kind::rom;
     for (const char *s : {".txt", ".json", ".ini", ".log", ".cfg", ".md"})
@@ -173,9 +173,9 @@ void draw_file_icon(hui::gfx::DrawList &list, Kind kind, float cx, float cy, flo
     {
         list.bordered_rect(page, s * 0.1f, wash, stroke, tint);
         for (int i = 0; i < 4; ++i)
-            list.rounded_rect({page.x + s * 0.12f, page.y + s * 0.2f + static_cast<float>(i) * s *
-                                                                          0.16f,
-                               s * 0.48f, stroke},
+            list.rounded_rect({page.x + s * 0.12f,
+                               page.y + s * 0.2f + static_cast<float>(i) * s * 0.16f, s * 0.48f,
+                               stroke},
                               1, tint);
         break;
     }

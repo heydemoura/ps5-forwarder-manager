@@ -113,9 +113,8 @@ Result search(const std::string &key, const std::string &term, std::vector<Game>
 {
     out.clear();
     json::Value data;
-    const Result result =
-        request_json(std::string(kBase) + "/search/autocomplete/" + encode_segment(term), key,
-                     data);
+    const Result result = request_json(
+        std::string(kBase) + "/search/autocomplete/" + encode_segment(term), key, data);
     if (!result.ok)
         return result;
     for (std::size_t i = 0; i < data.size(); ++i)
@@ -136,10 +135,10 @@ Result assets(const std::string &key, Kind kind, long game_id, std::vector<Asset
     if (kind == Kind::background)
     {
         json::Value data;
-        const Result result = request_json(
-            std::string(kBase) + "/heroes/game/" + id +
-                "?dimensions=3840x1240,1920x620&types=static&nsfw=false&humor=false",
-            key, data);
+        const Result result =
+            request_json(std::string(kBase) + "/heroes/game/" + id +
+                             "?dimensions=3840x1240,1920x620&types=static&nsfw=false&humor=false",
+                         key, data);
         if (!result.ok)
             return result;
         collect_assets(data, out);
@@ -148,10 +147,10 @@ Result assets(const std::string &key, Kind kind, long game_id, std::vector<Asset
 
     // Icon: prefer square grids, then fall back to large square icons.
     json::Value grids;
-    const Result grid_result = request_json(
-        std::string(kBase) + "/grids/game/" + id +
-            "?dimensions=1024x1024,512x512&types=static&nsfw=false&humor=false",
-        key, grids);
+    const Result grid_result =
+        request_json(std::string(kBase) + "/grids/game/" + id +
+                         "?dimensions=1024x1024,512x512&types=static&nsfw=false&humor=false",
+                     key, grids);
     if (!grid_result.ok)
         return grid_result;
     collect_assets(grids, out);

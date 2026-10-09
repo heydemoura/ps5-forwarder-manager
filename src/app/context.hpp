@@ -30,7 +30,7 @@ struct Context
     Settings settings;
     std::string data_root;         // /download0/ps5fwdgen
     std::string app_template_root; // <app>/assets/forwarder-template
-    bool elevated = false;   // /data is reachable (Lapy said yes)
+    bool elevated = false;         // /data is reachable (Lapy said yes)
     std::string elevation_status;
     std::string version;
     bool settings_changed = false; // main.cpp re-reads input settings

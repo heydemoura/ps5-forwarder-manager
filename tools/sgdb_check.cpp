@@ -1,3 +1,7 @@
+// ps5fwdgen - Host check of the SteamGridDB chain.
+// Copyright (C) 2026 heydemoura
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
 // Full authenticated SteamGridDB chain with the REAL client code:
 // search -> assets -> download -> decode -> encode a 512x512 icon.
 #include "net/steamgriddb.hpp"

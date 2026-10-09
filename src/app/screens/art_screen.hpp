@@ -21,7 +21,6 @@ enum class ArtKind
 
 // on_ready receives the already-encoded bytes (PNG for icon, DDS for
 // background), then the screen pops itself.
-std::unique_ptr<Screen>
-make_art_screen(Context &context, ArtKind kind, std::string suggested_query,
-                std::function<void(std::vector<unsigned char>)> on_ready);
+std::unique_ptr<Screen> make_art_screen(Context &context, ArtKind kind, std::string suggested_query,
+                                        std::function<void(std::vector<unsigned char>)> on_ready);
 } // namespace fwd

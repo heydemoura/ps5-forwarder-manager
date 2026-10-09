@@ -27,14 +27,12 @@ constexpr const char *kBuiltinSteamGridDbKey = FWD_STRINGIFY(STEAMGRIDDB_API_KEY
 constexpr const char *kBuiltinSteamGridDbKey = "";
 #endif
 
-
 std::string_view trim(std::string_view value)
 {
-    while (!value.empty() && (value.front() == ' ' || value.front() == '\t' ||
-                              value.front() == '\r'))
-        value.remove_prefix(1);
     while (!value.empty() &&
-           (value.back() == ' ' || value.back() == '\t' || value.back() == '\r'))
+           (value.front() == ' ' || value.front() == '\t' || value.front() == '\r'))
+        value.remove_prefix(1);
+    while (!value.empty() && (value.back() == ' ' || value.back() == '\t' || value.back() == '\r'))
         value.remove_suffix(1);
     return value;
 }

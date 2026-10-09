@@ -28,24 +28,59 @@ class Value
     };
 
     Value() noexcept = default;
-    explicit Value(bool value) noexcept : type_{Type::boolean}, boolean_{value} {}
-    explicit Value(double value) noexcept : type_{Type::number}, number_{value} {}
-    explicit Value(int value) noexcept : type_{Type::number}, number_{static_cast<double>(value)} {}
-    explicit Value(long value) noexcept : type_{Type::number}, number_{static_cast<double>(value)} {}
-    explicit Value(std::string value) : type_{Type::string}, string_{std::move(value)} {}
-    explicit Value(std::string_view value) : type_{Type::string}, string_{value} {}
-    explicit Value(const char *value) : type_{Type::string}, string_{value} {}
+    explicit Value(bool value) noexcept : type_{Type::boolean}, boolean_{value}
+    {
+    }
+    explicit Value(double value) noexcept : type_{Type::number}, number_{value}
+    {
+    }
+    explicit Value(int value) noexcept : type_{Type::number}, number_{static_cast<double>(value)}
+    {
+    }
+    explicit Value(long value) noexcept : type_{Type::number}, number_{static_cast<double>(value)}
+    {
+    }
+    explicit Value(std::string value) : type_{Type::string}, string_{std::move(value)}
+    {
+    }
+    explicit Value(std::string_view value) : type_{Type::string}, string_{value}
+    {
+    }
+    explicit Value(const char *value) : type_{Type::string}, string_{value}
+    {
+    }
 
     static Value array();
     static Value object();
 
-    [[nodiscard]] Type type() const noexcept { return type_; }
-    [[nodiscard]] bool is_null() const noexcept { return type_ == Type::null; }
-    [[nodiscard]] bool is_bool() const noexcept { return type_ == Type::boolean; }
-    [[nodiscard]] bool is_number() const noexcept { return type_ == Type::number; }
-    [[nodiscard]] bool is_string() const noexcept { return type_ == Type::string; }
-    [[nodiscard]] bool is_array() const noexcept { return type_ == Type::array; }
-    [[nodiscard]] bool is_object() const noexcept { return type_ == Type::object; }
+    [[nodiscard]] Type type() const noexcept
+    {
+        return type_;
+    }
+    [[nodiscard]] bool is_null() const noexcept
+    {
+        return type_ == Type::null;
+    }
+    [[nodiscard]] bool is_bool() const noexcept
+    {
+        return type_ == Type::boolean;
+    }
+    [[nodiscard]] bool is_number() const noexcept
+    {
+        return type_ == Type::number;
+    }
+    [[nodiscard]] bool is_string() const noexcept
+    {
+        return type_ == Type::string;
+    }
+    [[nodiscard]] bool is_array() const noexcept
+    {
+        return type_ == Type::array;
+    }
+    [[nodiscard]] bool is_object() const noexcept
+    {
+        return type_ == Type::object;
+    }
 
     [[nodiscard]] bool as_bool(bool fallback = false) const noexcept;
     [[nodiscard]] double as_number(double fallback = 0.0) const noexcept;
@@ -60,9 +95,15 @@ class Value
     [[nodiscard]] const Value *find(std::string_view key) const noexcept;
     // Object member; a shared null value when missing.
     [[nodiscard]] const Value &get(std::string_view key) const noexcept;
-    [[nodiscard]] bool has(std::string_view key) const noexcept { return find(key) != nullptr; }
+    [[nodiscard]] bool has(std::string_view key) const noexcept
+    {
+        return find(key) != nullptr;
+    }
 
-    [[nodiscard]] const std::vector<Value> &items() const noexcept { return array_; }
+    [[nodiscard]] const std::vector<Value> &items() const noexcept
+    {
+        return array_;
+    }
     [[nodiscard]] const std::vector<std::pair<std::string, Value>> &members() const noexcept
     {
         return object_;

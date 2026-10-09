@@ -363,9 +363,9 @@ class HomeScreen final : public Screen
             const std::string_view label =
                 i == 0 ? std::string_view("All") : std::string_view(systems_[i - 1]);
             const bool active = i == active_tab_;
-            const float w = hui::ui::text(list, active ? fonts.semibold : fonts.regular, label, x,
-                                          baseline, 26.0f,
-                                          kWhite.with_alpha(active ? 1.0f : 0.55f));
+            const float w =
+                hui::ui::text(list, active ? fonts.semibold : fonts.regular, label, x, baseline,
+                              26.0f, kWhite.with_alpha(active ? 1.0f : 0.55f));
             if (active)
                 list.rounded_rect({x, 104.0f, w, 4.0f}, 2.0f, accent);
             x += w + 44.0f;
@@ -373,8 +373,8 @@ class HomeScreen final : public Screen
         char count[64];
         (void)std::snprintf(count, sizeof(count), "%zu forwarder%s", forwarders_.size(),
                             forwarders_.size() == 1 ? "" : "s");
-        hui::ui::text(list, fonts.regular, count, hui::gfx::kVirtualWidth - kMargin, baseline, 26.0f,
-                      kWhite.with_alpha(0.8f), hui::gfx::Align::right);
+        hui::ui::text(list, fonts.regular, count, hui::gfx::kVirtualWidth - kMargin, baseline,
+                      26.0f, kWhite.with_alpha(0.8f), hui::gfx::Align::right);
         list.pop_opacity();
     }
 
@@ -385,8 +385,7 @@ class HomeScreen final : public Screen
         if (hero_.running)
         {
             const float t = hero_.progress();
-            draw_hero_item(context, list, previous_,
-                           1.0f - hui::tween::smoothstep(t * 2.2f),
+            draw_hero_item(context, list, previous_, 1.0f - hui::tween::smoothstep(t * 2.2f),
                            -36.0f * hui::tween::cubic_in(hui::tween::clamp01(t * 2.2f)));
             const float arrive = hui::tween::clamp01((t - 0.25f) / 0.75f);
             draw_hero_item(context, list, shown_, hui::tween::smoothstep(arrive),
@@ -419,7 +418,8 @@ class HomeScreen final : public Screen
         const float x = kMargin + slide;
         if (is_create(tile))
         {
-            hui::ui::text(list, fonts.semibold, "NEW", x, 236, 20, accent, hui::gfx::Align::left, 4.0f);
+            hui::ui::text(list, fonts.semibold, "NEW", x, 236, 20, accent, hui::gfx::Align::left,
+                          4.0f);
             hui::ui::text(list, fonts.display, "Create a forwarder", x - 4, 320, 76, kWhite);
             hui::ui::paragraph(list, fonts.regular,
                                "Make a home-screen tile that launches an app with a ROM. "
@@ -452,8 +452,8 @@ class HomeScreen final : public Screen
         list.pop_opacity();
     }
 
-    void draw_cta(hui::gfx::DrawList &list, const hui::ui::Fonts &fonts, float x,
-                  const char *label, const Color &accent) const
+    void draw_cta(hui::gfx::DrawList &list, const hui::ui::Fonts &fonts, float x, const char *label,
+                  const Color &accent) const
     {
         const Rect button{x, 528, 240, 64};
         list.glow(button, 32, 18, accent.with_alpha(0.35f));
@@ -468,14 +468,13 @@ class HomeScreen final : public Screen
     {
         const hui::ui::Fonts &fonts = context.fonts;
         const float in = tween_stagger(3, 0.09f, 0.6f);
-        const float nudge =
-            hui::ui::shake(nudge_.value, clock_, 16.0f, 8.0f) * nudge_direction_;
+        const float nudge = hui::ui::shake(nudge_.value, clock_, 16.0f, 8.0f) * nudge_direction_;
         list.push_opacity(in);
         if (visible_.empty())
         {
-            const std::string sys = active_tab_ == 0 ? std::string("any system")
-                                                     : systems_[static_cast<std::size_t>(
-                                                           active_tab_ - 1)];
+            const std::string sys = active_tab_ == 0
+                                        ? std::string("any system")
+                                        : systems_[static_cast<std::size_t>(active_tab_ - 1)];
             hui::ui::text(list, fonts.regular, "No forwarders for " + sys + " yet — press Create",
                           kMargin + kCard + kCardGap + 24.0f, kShelfY + kCard * 0.5f, 26.0f,
                           kWhite.with_alpha(0.65f));
@@ -508,9 +507,10 @@ class HomeScreen final : public Screen
         list.pop_opacity();
 
         // Hints along the bottom.
-        const hui::ui::Hint hints[] = {{hui::ui::Button::cross, is_create(focus_) ? "Create" : "Edit"},
-                                       {hui::ui::Button::triangle, "New"},
-                                       {hui::ui::Button::options, "Settings"}};
+        const hui::ui::Hint hints[] = {
+            {hui::ui::Button::cross, is_create(focus_) ? "Create" : "Edit"},
+            {hui::ui::Button::triangle, "New"},
+            {hui::ui::Button::options, "Settings"}};
         list.push_opacity(in);
         hui::ui::draw_hints(list, fonts, hui::ui::GlyphStyle::dark(), hints, 3, 1824, true);
         list.pop_opacity();
@@ -520,8 +520,7 @@ class HomeScreen final : public Screen
     {
         (void)overlay;
         const hui::ui::Theme &theme = context.theme;
-        hui::ui::text(scene.list, context.fonts.display, "Forwarder Manager", 96, 150, 48,
-                      kWhite);
+        hui::ui::text(scene.list, context.fonts.display, "Forwarder Manager", 96, 150, 48, kWhite);
         hui::ui::text(scene.list, context.fonts.semibold, "Lapy JB Daemon is not running", 96, 360,
                       34, theme.danger);
         hui::ui::paragraph(scene.list, context.fonts.regular,
@@ -543,11 +542,11 @@ class HomeScreen final : public Screen
         return hui::tween::stagger(age_, index, step, duration);
     }
 
-    std::vector<Forwarder> forwarders_;         // the full scan
-    std::vector<std::uint32_t> textures_;       // aligned to forwarders_
-    std::vector<std::string> systems_;          // tab labels after "All"
-    std::vector<int> visible_;                  // forwarders_ indices in the active tab
-    int active_tab_ = 0;                        // 0 = All
+    std::vector<Forwarder> forwarders_;   // the full scan
+    std::vector<std::uint32_t> textures_; // aligned to forwarders_
+    std::vector<std::string> systems_;    // tab labels after "All"
+    std::vector<int> visible_;            // forwarders_ indices in the active tab
+    int active_tab_ = 0;                  // 0 = All
     int focus_ = 0;
     int shown_ = 0;
     int previous_ = 0;

@@ -327,9 +327,9 @@ class SteamGridScreen final : public Screen
         case Job::assets:
         {
             std::vector<sgdb::Asset> assets;
-            const sgdb::Result result =
-                sgdb::assets(key_, kind_ == ArtKind::icon ? sgdb::Kind::icon : sgdb::Kind::background,
-                             selected_game_, assets);
+            const sgdb::Result result = sgdb::assets(
+                key_, kind_ == ArtKind::icon ? sgdb::Kind::icon : sgdb::Kind::background,
+                selected_game_, assets);
             std::lock_guard<std::mutex> lock(shared_.mutex);
             shared_.assets = std::move(assets);
             shared_.error = result.error;
@@ -602,8 +602,9 @@ class SteamGridScreen final : public Screen
     }
     const std::string &active_game_name() const
     {
-        return chip_ < static_cast<int>(games_.size()) ? games_[static_cast<std::size_t>(chip_)].name
-                                                       : query_;
+        return chip_ < static_cast<int>(games_.size())
+                   ? games_[static_cast<std::size_t>(chip_)].name
+                   : query_;
     }
 
     // ---- input ------------------------------------------------------------------
@@ -903,7 +904,8 @@ class SteamGridScreen final : public Screen
             card.y.update(dt, 11.0f);
             card.shown.update(dt, 9.0f);
             card.lift.target =
-                zone_ != Zone::chips && static_cast<int>(i) == focus_ && !dialog_open_ ? 1.0f : 0.0f;
+                zone_ != Zone::chips && static_cast<int>(i) == focus_ && !dialog_open_ ? 1.0f
+                                                                                       : 0.0f;
             card.lift.update(dt, reduced ? 40.0f : 16.0f);
         }
         // Scroll keeps the focused row in view, with clearance for the lift.
@@ -993,17 +995,20 @@ class SteamGridScreen final : public Screen
             const float offset = chips_offset(fonts);
             hui::ui::draw_button(list, fonts, glyphs, hui::ui::Button::l2, kMargin, chip_cy,
                                  kShoulder);
-            const float left = kMargin + hui::ui::button_width(hui::ui::Button::l2, kShoulder) + 8.0f;
+            const float left =
+                kMargin + hui::ui::button_width(hui::ui::Button::l2, kShoulder) + 8.0f;
             const float r2_x = kRight - hui::ui::button_width(hui::ui::Button::r2, kShoulder);
             const float right = r2_x - 8.0f;
-            hui::ui::draw_button(list, fonts, glyphs, hui::ui::Button::r2, r2_x, chip_cy, kShoulder);
+            hui::ui::draw_button(list, fonts, glyphs, hui::ui::Button::r2, r2_x, chip_cy,
+                                 kShoulder);
             list.push_clip({left, kChipY - 12.0f, right - left, kChipH + 24.0f});
             Rect tab = chip_tab_.value();
             tab.x += hui::ui::shake(nudge_.value, clock_, 12.0f, 8.0f) *
                      (zone_ == Zone::chips ? nudge_x_ : 0.0f);
             list.shadow({tab.x, tab.y + 5.0f, tab.w, tab.h}, kChipH * 0.5f, 12.0f,
                         kBlack.with_alpha(0.4f));
-            list.gradient_rect(tab, kChipH * 0.5f, kPaper, hui::gfx::mix(kPaper, kPaperShade, 0.7f));
+            list.gradient_rect(tab, kChipH * 0.5f, kPaper,
+                               hui::gfx::mix(kPaper, kPaperShade, 0.7f));
             for (std::size_t i = 0; i < chips.size(); ++i)
             {
                 Rect chip = chips[i];
@@ -1029,7 +1034,8 @@ class SteamGridScreen final : public Screen
                               hui::gfx::mix(kOnDark.with_alpha(0.78f), kInk, cover));
                 if (counts_[i] >= 0)
                     hui::ui::text(list, fonts.mono, text, x + label_w + 10.0f, chip_cy + 7.0f,
-                                  18.0f, hui::gfx::mix(kOnDark.with_alpha(0.45f), kInkMuted, cover));
+                                  18.0f,
+                                  hui::gfx::mix(kOnDark.with_alpha(0.45f), kInkMuted, cover));
             }
             list.pop_clip();
         }
@@ -1161,8 +1167,7 @@ class SteamGridScreen final : public Screen
         const float radius = kCardRadius * (1.0f + kLift);
         if (ring_alpha > 0.01f)
         {
-            const float breath =
-                context.settings.reduced_motion ? 0.5f : hui::ui::breathe(clock_);
+            const float breath = context.settings.reduced_motion ? 0.5f : hui::ui::breathe(clock_);
             list.glow(ring.inset(-kRingGap), radius + kRingGap, 26.0f,
                       kGold.with_alpha((0.3f + 0.2f * breath) * ring_alpha * landed));
         }
@@ -1219,7 +1224,8 @@ class SteamGridScreen final : public Screen
 
         list.push_opacity(hui::tween::clamp01(t * 1.3f));
         list.push_transform(reduced ? 1.0f : 0.92f + 0.08f * t, note.cx(), note.cy(), 0.0f, 0.0f);
-        list.shadow({note.x, note.y + 20.0f, note.w, note.h}, 22.0f, 44.0f, kBlack.with_alpha(0.5f));
+        list.shadow({note.x, note.y + 20.0f, note.w, note.h}, 22.0f, 44.0f,
+                    kBlack.with_alpha(0.5f));
         if (!reduced)
             list.rotated_rect(note, 22.0f, -0.045f, kPaperShade);
         list.gradient_rect(note, 22.0f, kPaper, hui::gfx::mix(kPaper, kPaperShade, 0.6f));
@@ -1230,7 +1236,7 @@ class SteamGridScreen final : public Screen
         if (searching || loading)
         {
             headline = searching ? "Looking it up" : "Stocking the shelf";
-            line = searching             ? "Asking SteamGridDB for matching games."
+            line = searching                 ? "Asking SteamGridDB for matching games."
                    : pending_ == Job::assets ? "Finding its artwork."
                                              : "Fetching the thumbnails.";
             hui::ui::Canvas canvas{list, fonts, 0, clock_};
@@ -1300,9 +1306,8 @@ class SteamGridScreen final : public Screen
         list.bordered_rect(sheet, 28.0f, kClear, 1.5f, kWhite.with_alpha(0.7f));
 
         // The picture as a print lying on the sheet, slightly askew underneath.
-        const float print_h = kind_ == ArtKind::icon
-                                  ? kDialogCover
-                                  : (kDialogCover - 24.0f) * 9.0f / 16.0f + 24.0f;
+        const float print_h =
+            kind_ == ArtKind::icon ? kDialogCover : (kDialogCover - 24.0f) * 9.0f / 16.0f + 24.0f;
         const Rect print{sheet.x + kDialogPad, sheet.y + kDialogPad, kDialogCover, print_h};
         const Rect art = print.inset(12.0f);
         list.shadow({print.x, print.y + 12.0f, print.w, print.h}, 8.0f, 26.0f,
@@ -1319,8 +1324,8 @@ class SteamGridScreen final : public Screen
         // Text column.
         const float x = sheet.x + kDialogPad + kDialogCover + 44.0f;
         const float width = sheet.x + sheet.w - kDialogPad - x;
-        hui::ui::text(list, fonts.semibold, kind_ == ArtKind::icon ? "TILE ICON" : "BACKGROUND",
-                      x, sheet.y + 90.0f, 18.0f, card.mid, hui::gfx::Align::left, 4.0f);
+        hui::ui::text(list, fonts.semibold, kind_ == ArtKind::icon ? "TILE ICON" : "BACKGROUND", x,
+                      sheet.y + 90.0f, 18.0f, card.mid, hui::gfx::Align::left, 4.0f);
         hui::ui::text(list, fonts.display,
                       fonts.display.font->fit(active_game_name(), 58.0f, width), x - 3.0f,
                       sheet.y + 154.0f, 58.0f, kInk);

@@ -20,14 +20,17 @@ checked=0
 for file in "${repository_files[@]}"; do
     [[ -f $file ]] || continue
     case "$file" in
-        third_party/*)
+        third_party/*|src/third_party/*)
             continue # Vendored code keeps its upstream attribution and formatting.
             ;;
         *.c|*.cc|*.cpp|*.h|*.hpp|*.ld|*.py|*.ps1|*.sh|*.yml|*.yaml|Makefile|.clang-format|.clang-tidy|.env.example)
+            # Every first-party file states its copyright holder (the
+            # boilerplate's, the UI kit's, or this app's) and its license.
             header=$(head -n 20 "$file")
-            grep -Fq ps5-native-app-boilerplate <<<"$header"
-            grep -Fq 'Copyright (C) 2026 BlackBearReloaded' <<<"$header"
-            grep -Fq 'SPDX-License-Identifier: GPL-3.0-or-later' <<<"$header"
+            grep -Eq 'Copyright \(C\) [0-9]{4} [A-Za-z]' <<<"$header" ||
+                { echo "missing copyright line: $file" >&2; exit 2; }
+            grep -Fq 'SPDX-License-Identifier: GPL-3.0-or-later' <<<"$header" ||
+                { echo "missing SPDX license line: $file" >&2; exit 2; }
             ((checked += 1))
             ;;
         *.cs|*.csproj)

@@ -81,7 +81,6 @@ RUNTIME := runtime/libc.prx
 RUNTIME_INPUTS := tools/rebuild-libc.sh tools/build-host-tools.sh tools/ninja-build.sh \
 	$(wildcard tooling/native/*.cpp tooling/native/*.hpp) \
 	$(wildcard tooling/native/runtime/*.txt)
-HOST_UNIT_TEST := build/tests/unit_tests
 
 # The PS5 Forwarder Format (external/ps5-forwarder-format, a git submodule):
 # its prebuilt template is what every forwarder is made from, and its
@@ -180,10 +179,11 @@ test-deps:
 	@printf '%s\n' '==> [test-deps] Fetching the pinned host-only GoogleTest source'
 	@bash tools/setup-test-dependencies.sh >/dev/null
 
+# The app's unit tests are the forwarder format's (the template demo they
+# replaced is gone): its library and the launcher protocol, on the host.
 test-unit:
-	@bash tools/build-tests.sh
-	@printf '%s\n' '==> [test-unit] Running host-native GoogleTest application tests'
-	@$(HOST_UNIT_TEST) $(GTEST_ARGS)
+	@printf '%s\n' '==> [test-unit] Running the forwarder format library and launcher tests'
+	@$(MAKE) --no-print-directory -C external/ps5-forwarder-format test
 
 test-integration:
 	@printf '%s\n' '==> [test-integration] Running host tooling integration tests'
@@ -230,27 +230,32 @@ packages: $(RUNTIME) opengl
 	@printf '%s\n' '==> [packages] Building the app folder and both package formats'
 	@bash tools/build.sh All
 
+# The example titles are separate apps: they get none of this app's build
+# settings (its OpenGL link group, runtime wrappers and include paths).
+EXAMPLE_ENV := APP_DEFINITIONS= APP_INCLUDE_PATHS= APP_STATIC_ARCHIVES= APP_IMPORT_STUBS= \
+	APP_WRAP_SYMBOLS= APP_RUNTIME_MODULES= APP_ROOT_FILES=
+
 sandbox-elevation-example: $(RUNTIME)
 	@printf '%s\n' '==> [sandbox-elevation] Building the embedded upstream-Lapy proof folder and ZIP'
-	@APP_SOURCE_DIR=examples/sandbox-elevation/src \
+	@$(EXAMPLE_ENV) APP_SOURCE_DIR=examples/sandbox-elevation/src \
 		APP_PARAM=examples/sandbox-elevation/sce_sys/param.json \
 		APP_SCE_SYS=sce_sys APP_ASSETS= APP_LAPY_HELPER=1 \
 		bash tools/build.sh Folder
 
 sandbox-elevation-ffpfsc: $(RUNTIME)
 	@printf '%s\n' '==> [sandbox-elevation] Building the embedded upstream-Lapy proof image'
-	@APP_SOURCE_DIR=examples/sandbox-elevation/src \
+	@$(EXAMPLE_ENV) APP_SOURCE_DIR=examples/sandbox-elevation/src \
 		APP_PARAM=examples/sandbox-elevation/sce_sys/param.json \
 		APP_SCE_SYS=sce_sys APP_ASSETS= APP_LAPY_HELPER=1 \
 		bash tools/build.sh Ffpfsc
 
 update-check-example: $(RUNTIME)
 	@printf '%s\n' '==> [update-check] Building the catalog update-check example title'
-	@APP_SOURCE_DIR=examples/update-check \
+	@$(EXAMPLE_ENV) APP_SOURCE_DIR=examples/update-check \
 		APP_PARAM=examples/update-check/sce_sys/param.json \
 		APP_SCE_SYS=sce_sys APP_ASSETS=examples/update-check/assets \
 		PACBREW_PACKAGES="libcurl $(PACBREW_PACKAGES)" \
-		APP_WRAP_SYMBOLS="fcntl $(APP_WRAP_SYMBOLS)" \
+		APP_WRAP_SYMBOLS="fcntl" \
 		bash tools/build.sh Folder
 
 SELF_UPDATE_HELPER := build/self-update/self-updater.elf
@@ -265,13 +270,13 @@ self-update-helper:
 
 self-update-example: $(RUNTIME) self-update-helper
 	@printf '%s\n' '==> [self-update] Building the self-update example title'
-	@APP_SOURCE_DIR=examples/self-update \
+	@$(EXAMPLE_ENV) APP_SOURCE_DIR=examples/self-update \
 		APP_PARAM=examples/self-update/sce_sys/param.json \
 		APP_SCE_SYS=sce_sys APP_ASSETS=examples/self-update/assets \
-		APP_INCLUDE_PATHS="examples/update-check $(APP_INCLUDE_PATHS)" \
+		APP_INCLUDE_PATHS="examples/update-check" \
 		PACBREW_PACKAGES="libcurl $(PACBREW_PACKAGES)" \
-		APP_WRAP_SYMBOLS="fcntl $(APP_WRAP_SYMBOLS)" \
-		APP_ROOT_FILES="$(SELF_UPDATE_HELPER) $(APP_ROOT_FILES)" \
+		APP_WRAP_SYMBOLS="fcntl" \
+		APP_ROOT_FILES="$(SELF_UPDATE_HELPER)" \
 		bash tools/build.sh Folder
 
 deploy:

@@ -14,7 +14,10 @@ if [[ -z $formatter ]]; then
 fi
 [[ -n $formatter ]] || { echo "clang-format is required" >&2; exit 2; }
 
-mapfile -d '' sources < <(find "$root/src" "$root/tooling/native" "$root/tests" "$root/examples" -type f \
+# Vendored upstream code (src/third_party) is kept as published, as the build
+# does: it is not formatted or checked.
+mapfile -d '' sources < <(find "$root/src" "$root/tooling/native" "$root/tests" "$root/examples" \
+    -path "$root/src/third_party" -prune -o -type f \
     \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) \
     -print0)
 if [[ ${1:-} == --check ]]; then

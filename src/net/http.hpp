@@ -18,9 +18,9 @@ void global_init();
 
 struct Response
 {
-    long status = 0;      // HTTP status, or 0 on a transport error
-    int curl_code = 0;    // CURLcode (0 = ok)
-    std::string error;    // human-readable, when status == 0
+    long status = 0;   // HTTP status, or 0 on a transport error
+    int curl_code = 0; // CURLcode (0 = ok)
+    std::string error; // human-readable, when status == 0
     std::vector<unsigned char> body;
 };
 

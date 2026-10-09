@@ -39,8 +39,8 @@ struct Frame
 class App
 {
   public:
-    App(const hui::ui::Fonts &fonts, hui::gfx::Renderer &renderer, std::string data_root, hui::audio::Mixer &mixer,
-        bool elevated, const char *elevation_status);
+    App(const hui::ui::Fonts &fonts, hui::gfx::Renderer &renderer, std::string data_root,
+        hui::audio::Mixer &mixer, bool elevated, const char *elevation_status);
     ~App();
     App(const App &) = delete;
     App &operator=(const App &) = delete;
@@ -61,7 +61,10 @@ class App
     bool quit_requested() const;
 
     // Development-only scripted-input hooks.
-    void dev_update(const hui::InputFrame &input, float dt) { update(input, dt); }
+    void dev_update(const hui::InputFrame &input, float dt)
+    {
+        update(input, dt);
+    }
     bool dev_type(const std::string &text);
     void dev_quit();
 

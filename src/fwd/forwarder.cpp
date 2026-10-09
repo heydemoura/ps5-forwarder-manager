@@ -15,7 +15,6 @@
 namespace fwd
 {
 
-
 std::string target_display_name(const std::string &title_id)
 {
     for (const Target &target : known_targets())
@@ -28,11 +27,11 @@ std::vector<Target> known_targets()
 {
     // The target apps PS5 Forwarder Builder supports (from ps5-forwarder.mph.am):
     return {
-        {"PPSA99008", "ProsperoEden", true, true},  // Nintendo Switch (Eden)
-        {"PPSA99764", "Porpoise", true, false},     // GameCube / Wii (RetroArch)
-        {"PPSA99203", "PS5SX2", true, false},       // PlayStation 2 (PCSX2)
-        {"PPSA50011", "PS5X360", true, false},      // Xbox 360 (Xenia)
-        {"PPSA00000", "Payload", true, false},      // ELF payload launcher
+        {"PPSA99008", "ProsperoEden", true, true}, // Nintendo Switch (Eden)
+        {"PPSA99764", "Porpoise", true, false},    // GameCube / Wii (RetroArch)
+        {"PPSA99203", "PS5SX2", true, false},      // PlayStation 2 (PCSX2)
+        {"PPSA50011", "PS5X360", true, false},     // Xbox 360 (Xenia)
+        {"PPSA00000", "Payload", true, false},     // ELF payload launcher
         {"", "Generic (enter a title ID)", false, false},
     };
 }

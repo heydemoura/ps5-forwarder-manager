@@ -156,8 +156,7 @@ Response post_bytes(const std::string &url, const std::vector<unsigned char> &da
     curl_easy_setopt(easy, CURLOPT_WRITEDATA, &response.body);
     curl_easy_setopt(easy, CURLOPT_POST, 1L);
     curl_easy_setopt(easy, CURLOPT_POSTFIELDS, reinterpret_cast<const char *>(data.data()));
-    curl_easy_setopt(easy, CURLOPT_POSTFIELDSIZE_LARGE,
-                     static_cast<curl_off_t>(data.size()));
+    curl_easy_setopt(easy, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(data.size()));
 
     struct curl_slist *headers = nullptr;
     const std::string ctype = "Content-Type: " + content_type;

@@ -17,11 +17,11 @@ namespace launcher
 
 enum class State
 {
-    checking,      // the probe has not finished yet
-    already_up,    // something already served the port when the app started
-    injected,      // the built-in launcher was sent to elfldr and came up
-    no_elfldr,     // nothing on the port, and elfldr refused the connection
-    failed,        // sent, but the port never came up (or the payload is missing)
+    checking,   // the probe has not finished yet
+    already_up, // something already served the port when the app started
+    injected,   // the built-in launcher was sent to elfldr and came up
+    no_elfldr,  // nothing on the port, and elfldr refused the connection
+    failed,     // sent, but the port never came up (or the payload is missing)
 };
 
 // Starts the check on a background thread; returns at once.

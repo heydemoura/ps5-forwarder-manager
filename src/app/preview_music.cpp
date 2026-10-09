@@ -30,8 +30,8 @@ bool PreviewMusic::play(const at9::Decoded &clip)
     const std::size_t out_frames =
         clip.sample_rate == hui::audio::kSampleRate
             ? in_frames
-            : static_cast<std::size_t>(static_cast<double>(in_frames) *
-                                       hui::audio::kSampleRate / clip.sample_rate);
+            : static_cast<std::size_t>(static_cast<double>(in_frames) * hui::audio::kSampleRate /
+                                       clip.sample_rate);
     if (out_frames == 0)
         return false;
     std::vector<std::int16_t> pcm(out_frames * 2);

@@ -1,3 +1,7 @@
+// ps5fwdgen - Host-only libcurl shim for the SteamGridDB client.
+// Copyright (C) 2026 heydemoura
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
 // Host-only shim of net::get using system libcurl, to exercise the real
 // sgdb client code against the live API.
 #include "net/http.hpp"

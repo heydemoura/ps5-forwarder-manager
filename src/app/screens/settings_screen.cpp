@@ -152,10 +152,13 @@ class SettingsScreen final : public Screen
         // Which launcher serves the forwarder tiles (platform/launcher_inject).
         const launcher::State state = launcher::state();
         const bool bad = state == launcher::State::no_elfldr || state == launcher::State::failed;
-        hui::ui::text(scene.list, context.fonts.regular, launcher::describe(state), 1824.0f,
-                      206.0f, 24.0f,
-                      bad ? context.theme.warning : white.with_alpha(0.55f), hui::gfx::Align::right);
+        hui::ui::text(scene.list, context.fonts.regular, launcher::describe(state), 1824.0f, 206.0f,
+                      24.0f, bad ? context.theme.warning : white.with_alpha(0.55f),
+                      hui::gfx::Align::right);
         form_.draw(scene);
+        if (!context.version.empty())
+            hui::ui::text(scene.list, context.fonts.regular, "Version " + context.version, 96.0f,
+                          1010.0f, 22.0f, white.with_alpha(0.45f));
         const bool modal = prompt_.visible();
         prompt_.draw(overlay);
         return modal;
