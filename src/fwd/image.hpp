@@ -38,9 +38,10 @@ std::vector<unsigned char> make_icon_png(const unsigned char *data,
 std::vector<unsigned char> make_icon_png_rgba(const unsigned char *rgba, int w,
                                               int h);
 
-// Scale an image to COVER 3840x2160 (center-crop overflow), encode as a
-// BC7 (mode 6) DDS exactly as the website's backgroundRgba()+backgroundDds().
-// Returns the .dds bytes, empty on failure.
+// Scale an image to COVER 1920x1080 (center-crop overflow), encode as a
+// BC7 (mode 6) DDS, as the website's backgroundRgba()+backgroundDds() does.
+// Capped at 1080p (down from the site's 4K) to stay within the 128 MB app
+// heap; 4K peaked too high and crashed on device. Empty on failure.
 std::vector<unsigned char> make_background_dds(const unsigned char *data,
                                                std::size_t size);
 std::vector<unsigned char> make_background_dds_rgba(const unsigned char *rgba,
@@ -50,8 +51,8 @@ std::vector<unsigned char> make_background_dds_rgba(const unsigned char *rgba,
 bool write_png_file(const char *path, const unsigned char *rgba, int w, int h);
 
 constexpr int kIconSize = 512;
-constexpr int kBackgroundWidth = 3840;
-constexpr int kBackgroundHeight = 2160;
+constexpr int kBackgroundWidth = 1920;
+constexpr int kBackgroundHeight = 1080;
 
 }  // namespace fwd
 

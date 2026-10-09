@@ -71,8 +71,9 @@ class HomeScreen final : public Screen
     {
         dialog_.style.theme = context.theme;
         tabs_.style.theme = context.theme;
-        tabs_.style.kind = hui::ui::TabKind::pill;
+        tabs_.style.kind = hui::ui::TabKind::underline;
         tabs_.style.on_page = true;
+        tabs_.style.text_size = 24.0f;
     }
 
     void release_textures()
@@ -127,14 +128,18 @@ class HomeScreen final : public Screen
         }
         // Group by system (the target app): one tab per distinct target, plus
         // "All" first.
+        // Tabs cover every system PS5 Forwarder Builder supports, not only the
+        // ones with an installed forwarder, then any extra target seen on disk.
         systems_.clear();
+        for (const Target &target : known_targets())
+            if (target.title_id[0] != '\0')
+                systems_.push_back(target.name);
         for (const Forwarder &f : forwarders_)
         {
             const std::string name = target_display_name(f.target);
             if (std::find(systems_.begin(), systems_.end(), name) == systems_.end())
                 systems_.push_back(name);
         }
-        std::sort(systems_.begin(), systems_.end());
         std::vector<hui::ui::TabItem> tab_items;
         tab_items.push_back({"All", static_cast<int>(forwarders_.size()), false, 0});
         for (const std::string &name : systems_)
@@ -453,12 +458,16 @@ class HomeScreen final : public Screen
     {
         const float in = tween_stagger(0, 0.05f, 0.5f);
         list.push_opacity(in);
-        hui::ui::text(list, context.fonts.display, "Forwarders", kMargin, 100 - 10 * (1 - in), 34,
-                      kWhite);
+        // Aurora-style top bar: the system tabs run across the top of the
+        // screen, with the forwarder count on the right.
+        tabs_.set_bounds({kMargin, 62.0f, 1150.0f, 56.0f});
+        hui::ui::Canvas tab_canvas{list, context.fonts, 0, clock_};
+        tabs_.draw(tab_canvas);
         char count[64];
-        (void)std::snprintf(count, sizeof(count), "%zu on this console", forwarders_.size());
-        hui::ui::text(list, context.fonts.regular, count, kMargin, 138, 22,
-                      kWhite.with_alpha(0.6f));
+        (void)std::snprintf(count, sizeof(count), "%zu forwarder%s", forwarders_.size(),
+                            forwarders_.size() == 1 ? "" : "s");
+        hui::ui::text(list, context.fonts.regular, count, hui::gfx::kVirtualWidth - kMargin, 98,
+                      24, kWhite.with_alpha(0.6f), hui::gfx::Align::right);
         list.pop_opacity();
     }
 
@@ -555,17 +564,14 @@ class HomeScreen final : public Screen
         const float nudge =
             hui::ui::shake(nudge_.value, clock_, 16.0f, 8.0f) * nudge_direction_;
         list.push_opacity(in);
-        if (!systems_.empty())
+        if (visible_.empty())
         {
-            tabs_.set_bounds({kMargin, kShelfY - 108.0f,
-                              hui::gfx::kVirtualWidth - 2.0f * kMargin, 52.0f});
-            hui::ui::Canvas tab_canvas{list, fonts, 0, clock_};
-            tabs_.draw(tab_canvas);
-        }
-        else
-        {
-            hui::ui::text(list, fonts.semibold, "Your forwarders", kMargin, kShelfY - 60, 24,
-                          kWhite.with_alpha(0.9f));
+            const std::string sys = active_tab_ == 0 ? std::string("any system")
+                                                     : systems_[static_cast<std::size_t>(
+                                                           active_tab_ - 1)];
+            hui::ui::text(list, fonts.regular, "No forwarders for " + sys + " yet — press Create",
+                          kMargin + kCard + kCardGap + 24.0f, kShelfY + kCard * 0.5f, 26.0f,
+                          kWhite.with_alpha(0.65f));
         }
         for (int tile = 0; tile < tile_count(); ++tile)
         {

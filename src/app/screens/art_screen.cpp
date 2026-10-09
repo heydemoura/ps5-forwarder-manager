@@ -144,7 +144,7 @@ class ArtScreen final : public Screen
                       text);
         hui::ui::text(scene.list, context.fonts.regular,
                       kind_ == ArtKind::icon ? "A 512x512 PNG, center-cropped from your image."
-                                             : "A 4K background, encoded to BC7 DDS.",
+                                             : "A 1920x1080 background, encoded to BC7 DDS.",
                       96.0f, 220.0f, 26.0f, muted);
         list_.draw(scene);
         toasts_.draw(overlay);

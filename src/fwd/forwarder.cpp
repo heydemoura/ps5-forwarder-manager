@@ -49,10 +49,13 @@ std::string target_display_name(const std::string &title_id)
 
 std::vector<Target> known_targets()
 {
+    // The target apps PS5 Forwarder Builder supports (from ps5-forwarder.mph.am):
     return {
-        {"PPSA99008", "ProsperoEden", true, true},
-        {"PPSA99764", "Porpoise", true, false},
-        {"PPSA99203", "PS5SX2", true, false},
+        {"PPSA99008", "ProsperoEden", true, true},  // Nintendo Switch (Eden)
+        {"PPSA99764", "Porpoise", true, false},     // GameCube / Wii (RetroArch)
+        {"PPSA99203", "PS5SX2", true, false},       // PlayStation 2 (PCSX2)
+        {"PPSA50011", "PS5X360", true, false},      // Xbox 360 (Xenia)
+        {"PPSA00000", "Payload", true, false},      // ELF payload launcher
         {"", "Generic (enter a title ID)", false, false},
     };
 }

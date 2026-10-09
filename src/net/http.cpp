@@ -134,4 +134,53 @@ Response post_file(const std::string &url, const std::string &field, const std::
     return response;
 }
 
+Response post_bytes(const std::string &url, const std::vector<unsigned char> &data,
+                    const std::string &content_type, long timeout_ms)
+{
+    global_init();
+    Response response;
+    CURL *easy = curl_easy_init();
+    if (easy == nullptr)
+    {
+        response.error = "curl_easy_init failed";
+        return response;
+    }
+    console_curl_setup(easy);
+    curl_easy_setopt(easy, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(easy, CURLOPT_PROTOCOLS_STR, "http,https");
+    curl_easy_setopt(easy, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
+    curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT_MS, 6000L);
+    curl_easy_setopt(easy, CURLOPT_TIMEOUT_MS, timeout_ms);
+    curl_easy_setopt(easy, CURLOPT_USERAGENT, "ps5fwdgen/1.0");
+    curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, on_body);
+    curl_easy_setopt(easy, CURLOPT_WRITEDATA, &response.body);
+    curl_easy_setopt(easy, CURLOPT_POST, 1L);
+    curl_easy_setopt(easy, CURLOPT_POSTFIELDS, reinterpret_cast<const char *>(data.data()));
+    curl_easy_setopt(easy, CURLOPT_POSTFIELDSIZE_LARGE,
+                     static_cast<curl_off_t>(data.size()));
+
+    struct curl_slist *headers = nullptr;
+    const std::string ctype = "Content-Type: " + content_type;
+    headers = curl_slist_append(headers, ctype.c_str());
+    headers = curl_slist_append(headers, "Expect:");
+    curl_easy_setopt(easy, CURLOPT_HTTPHEADER, headers);
+
+    char error_buffer[CURL_ERROR_SIZE] = {};
+    curl_easy_setopt(easy, CURLOPT_ERRORBUFFER, error_buffer);
+
+    const CURLcode code = curl_easy_perform(easy);
+    response.curl_code = static_cast<int>(code);
+    if (code == CURLE_OK)
+        curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &response.status);
+    else
+    {
+        response.status = 0;
+        response.error = error_buffer[0] != '\0' ? error_buffer : curl_easy_strerror(code);
+    }
+    if (headers != nullptr)
+        curl_slist_free_all(headers);
+    curl_easy_cleanup(easy);
+    return response;
+}
+
 } // namespace net

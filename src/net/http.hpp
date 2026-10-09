@@ -34,4 +34,10 @@ Response get(const std::string &url, const std::string &bearer = {}, long timeou
 Response post_file(const std::string &url, const std::string &field, const std::string &filename,
                    const std::vector<unsigned char> &data, long timeout_ms = 60000);
 
+// A raw POST of a byte body (http or https). Dev-only: used to ship debug
+// screenshots to the build host, which has no TLS. Blocking; worker/dev use.
+Response post_bytes(const std::string &url, const std::vector<unsigned char> &data,
+                    const std::string &content_type = "application/octet-stream",
+                    long timeout_ms = 15000);
+
 } // namespace net

@@ -20,6 +20,7 @@
 #include "fwd/image.hpp"
 #include "gfx/canvas.hpp"
 #include "gfx/renderer.hpp"
+#include "net/http.hpp"
 #include "platform/app_paths.hpp"
 #include "platform/elevation.hpp"
 #include "platform/ps5/audio_out.hpp"
@@ -253,11 +254,44 @@ int main()
                 std::memcpy(&flip[static_cast<std::size_t>(y) * kShotW * 4],
                             &px[static_cast<std::size_t>(kShotH - 1 - y) * kShotW * 4],
                             static_cast<std::size_t>(kShotW) * 4);
-            char shot_path[96];
-            (void)std::snprintf(shot_path, sizeof(shot_path),
-                                "/data/ps5fwdgen-dev/shot-%d.png", shot_index++);
+            // Write into the app's own download0 (the sandbox download dir):
+            // the build host reads it over FTP at
+            // /mnt/sandbox/<TITLE>_NNN/download0/, which round-trips cleanly
+            // even when the post-suspend /data union mount cannot. After
+            // elevation the process root is the console's, so bare /download0
+            // no longer resolves; derive it from the resolved app root
+            // (".../app0" -> ".../download0").
+            std::string shot_dir = "/download0";
+            {
+                const std::string &root = paths::app_root();
+                const std::size_t slash = root.find_last_of('/');
+                if (slash != std::string::npos && slash > 0)
+                    shot_dir = root.substr(0, slash) + "/download0";
+            }
+            char shot_path[160];
+            (void)std::snprintf(shot_path, sizeof(shot_path), "%s/shot-%d.png",
+                                shot_dir.c_str(), shot_index++);
             const bool ok = fwd::write_png_file(shot_path, flip.data(), kShotW, kShotH);
             sys::log("[FWD] screenshot %s ok=%d", shot_path, ok ? 1 : 0);
+            // Dev-only: when /data/ps5fwdgen-dev/upload.txt holds "host:port",
+            // ship the raw RGBA to the build host over HTTP, which the broken
+            // post-suspend union mount cannot round-trip through the FTP server.
+            {
+                std::string host;
+                if (hui::save::read_file("/data/ps5fwdgen-dev/upload.txt", &host, 256u) &&
+                    !host.empty())
+                {
+                    while (!host.empty() && (host.back() == '\n' || host.back() == '\r' ||
+                                             host.back() == ' '))
+                        host.pop_back();
+                    char url[160];
+                    (void)std::snprintf(url, sizeof(url), "http://%s/shot?w=%d&h=%d&n=%d",
+                                        host.c_str(), kShotW, kShotH, shot_index - 1);
+                    const net::Response r = net::post_bytes(
+                        url, flip, "application/octet-stream", 15000);
+                    sys::log("[FWD] screenshot upload http=%ld curl=%d", r.status, r.curl_code);
+                }
+            }
             last_frame_start = sys::monotonic_us();
         }
         if (!display.swap())
