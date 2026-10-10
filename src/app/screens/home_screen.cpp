@@ -521,11 +521,12 @@ class HomeScreen final : public Screen
         (void)overlay;
         const hui::ui::Theme &theme = context.theme;
         hui::ui::text(scene.list, context.fonts.display, "Forwarder Manager", 96, 150, 48, kWhite);
-        hui::ui::text(scene.list, context.fonts.semibold, "Lapy JB Daemon is not running", 96, 360,
+        hui::ui::text(scene.list, context.fonts.semibold, "No access to /data/homebrew", 96, 360,
                       34, theme.danger);
         hui::ui::paragraph(scene.list, context.fonts.regular,
-                           "This app needs ArkSama's PS5-Lapy-JB-Daemon loaded to reach "
-                           "/data/homebrew. Load it, then relaunch. Elevation: " +
+                           "The app starts its bundled Lapy JB helper through the ELF loader "
+                           "on port 9021, or uses a running PS5-Lapy-JB-Daemon. Make sure "
+                           "the jailbreak and elfldr are running, then relaunch. Elevation: " +
                                context.elevation_status + ".",
                            96, 420, 26, 1500, 1.5f, kWhite.with_alpha(0.7f), 6);
         return false;

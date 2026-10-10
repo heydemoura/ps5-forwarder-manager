@@ -49,13 +49,15 @@ SHA-256 `65fab701d9829d38cb77c14acdc431d2108bfdbf8979e40eb8ae567edf10b27c`.
 It remains under ignored `.deps/test/`, retains its BSD-3-Clause license, and
 is not linked into any PS5 application, runtime, or package artifact.
 
-## Optional PS5-Lapy-JB-Daemon integration
+## Bundled PS5-Lapy-JB-Daemon helper
 
-The sandbox-elevation build fetches
+Forwarder Manager's build (`APP_LAPY_HELPER=1`, the default) and the
+sandbox-elevation example fetch
 [mpereiraesaa's PS5-Lapy-JB-Daemon](https://github.com/mpereiraesaa/PS5-Lapy-JB-Daemon)
 at commit `54a095c0f19161825e845daa760a03b446e654fa`, invokes its unmodified
 `owned-helper` target for the selected application's exact title and packages
-the generated helper ELF with Lapy's MIT license. The shared protocol header
+the generated helper ELF as `lapy.elf`, with its manifest and Lapy's MIT
+license (`licenses/Lapy-MIT.txt`), in every release ZIP. The shared protocol header
 published upstream is LGPL-2.1-or-later; this repository's application-side
 wire implementation is GPL-3.0-or-later.
 

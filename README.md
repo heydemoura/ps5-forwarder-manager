@@ -45,12 +45,18 @@ forwarders live in their own folders and are kept.
 
 ## Requirements on the console
 
-- A jailbroken PS5 with `elfldr`.
-- [ArkSama's PS5-Lapy-JB-Daemon](https://github.com/ArkSama/PS5-Lapy-JB-Daemon)
-  running (payload loader or autoload). The app asks it for `/data` access at
-  launch; without it the app only shows a notice.
+- A jailbroken PS5 with `elfldr` listening on port 9021.
 - [ShadowMountPlus](https://github.com/drakmor/ShadowMountPlus) to register the
   generated tiles.
+
+Nothing else needs to be loaded for the app to reach `/data/homebrew`. The
+release bundles the exact-title one-shot helper from
+[PS5-Lapy-JB-Daemon](https://github.com/ArkSama/PS5-Lapy-JB-Daemon)
+(`lapy.elf`, with its MIT license in `licenses/`). At launch the app first asks
+a Lapy daemon that is already running, if there is one; otherwise it hands its
+own helper to `elfldr`, which lifts only this app out of its sandbox and then
+exits. The app uses `/data` only after it has proved it can write, read and
+list it.
 
 Forwarders are made in the [PS5 Forwarder Format](https://github.com/heydemoura/ps5-forwarder-format),
 a standard shared with emulators that create forwarders themselves. The format
@@ -111,7 +117,7 @@ update its `version`, `artifact_url`, `sha256` and `icon_url` for each release
 | `src/app/` | The app and its screens (home, edit, file picker, art, SteamGridDB, settings) |
 | `src/fwd/` | The forwarder model, the on-disk store, and the icon/DDS image encoders |
 | `src/net/` | libcurl glue and the SteamGridDB API v2 client |
-| `src/platform/` | Sandbox elevation (the Lapy protocol) and app-root resolution |
+| `src/platform/` | Sandbox elevation (Lapy daemon, then the bundled Lapy helper) and app-root resolution |
 | `src/{gfx,ui,audio,core,runtime}` | The ps5-homebrew-ui kit |
 | `assets/forwarder-template/` | The shared launcher `eboot.bin` and `libc.prx` |
 
@@ -127,4 +133,19 @@ that is inert unless trigger files exist under `/data/ps5fwdgen-dev/`:
 
 These are read only when present and never affect normal use.
 
-Licensed GPL-3.0-or-later. See `THIRD_PARTY_NOTICES.md`.
+## Acknowledgements
+
+Forwarder Manager could not reach `/data` without
+[PS5-Lapy-JB-Daemon](https://github.com/ArkSama/PS5-Lapy-JB-Daemon). Many
+thanks to **ArkSama / Team PHU**, who created Lapy and released it as open
+source, and to [mpereiraesaa](https://github.com/mpereiraesaa/PS5-Lapy-JB-Daemon)
+for the exact-title one-shot helper this app bundles. Thanks as well to the
+Lapy contributors, to Martin Pham for
+[ps5-forwarder.mph.am](https://ps5-forwarder.mph.am/), and to the authors of
+[ShadowMountPlus](https://github.com/drakmor/ShadowMountPlus),
+[SteamGridDB](https://www.steamgriddb.com/), the
+[ps5-native-app-boilerplate](https://github.com/blackbearreloaded/ps5-native-app-boilerplate)
+and the [PS5 payload SDK](https://github.com/ps5-payload-dev/sdk).
+
+Licensed GPL-3.0-or-later. Lapy's helper is MIT licensed (see
+`licenses/Lapy-MIT.txt` in the release). See `THIRD_PARTY_NOTICES.md`.

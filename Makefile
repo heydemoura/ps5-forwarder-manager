@@ -17,7 +17,9 @@ APP_PARAM ?=
 APP_SCE_SYS ?=
 APP_ASSETS ?= assets
 APP_ROOT_FILES ?=
-APP_LAPY_HELPER ?= 0
+# Bundle Lapy's exact-title one-shot helper (lapy.elf); the app needs it to
+# reach /data when no resident Lapy daemon is running.
+APP_LAPY_HELPER ?= 1
 APP_IMPORT_STUBS ?=
 # Empty selects the pinned ps5-opengl release (tools/fetch-opengl-sdk.sh).
 PS5_OPENGL_PREFIX ?=
@@ -156,6 +158,9 @@ test-elevation:
 	@$(HOST_CXX) $(HOST_TEST_CXXFLAGS) -idirafter .deps/native/ps5-payload-sdk/target/include \
 		tests/test_elevation.cpp $(HOST_TEST_LDFLAGS) -o build/tests/test_elevation
 	@build/tests/test_elevation
+	@$(HOST_CXX) $(HOST_TEST_CXXFLAGS) -Isrc -idirafter .deps/native/ps5-payload-sdk/target/include \
+		tests/test_app_elevation.cpp $(HOST_TEST_LDFLAGS) -o build/tests/test_app_elevation
+	@build/tests/test_app_elevation
 	@printf '%s\n' 'Resident/one-shot Lapy client, exchange, and proof checks passed.'
 
 test-update-check:
@@ -236,7 +241,7 @@ packages: $(RUNTIME) opengl
 # The example titles are separate apps: they get none of this app's build
 # settings (its OpenGL link group, runtime wrappers and include paths).
 EXAMPLE_ENV := APP_DEFINITIONS= APP_INCLUDE_PATHS= APP_STATIC_ARCHIVES= APP_IMPORT_STUBS= \
-	APP_WRAP_SYMBOLS= APP_RUNTIME_MODULES= APP_ROOT_FILES= PACBREW_PACKAGES=
+	APP_WRAP_SYMBOLS= APP_RUNTIME_MODULES= APP_ROOT_FILES= PACBREW_PACKAGES= APP_LAPY_HELPER=0
 
 sandbox-elevation-example: $(RUNTIME)
 	@printf '%s\n' '==> [sandbox-elevation] Building the embedded upstream-Lapy proof folder and ZIP'
