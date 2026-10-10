@@ -135,6 +135,10 @@ def main():
     fetch_ps5log()
     environment = os.environ.copy()
     environment.update(PS5_PAYLOAD_SDK=str(SDK), LOGGING_CLIENT=str(PS5LOG))
+    # Optional: a separate llvm-config for this SDK v0.40 build only, for hosts
+    # whose default llvm-config reports a different clang than the one used.
+    if environment.get("LAPY_LLVM_CONFIG"):
+        environment["LLVM_CONFIG"] = environment["LAPY_LLVM_CONFIG"]
     subprocess.run(["make", "owned-helper", f"TARGET_TITLE={args.title}"], cwd=LAPY,
                    env=environment, check=True)
 

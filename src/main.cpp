@@ -82,8 +82,24 @@ const char *status_name(elevation::Status status)
         return "ok";
     case elevation::Status::invalid_request:
         return "invalid_request";
+    case elevation::Status::unsupported_version:
+        return "unsupported_version";
+    case elevation::Status::unsupported_capability:
+        return "unsupported_capability";
+    case elevation::Status::target_mismatch:
+        return "target_mismatch";
     case elevation::Status::unavailable:
         return "unavailable";
+    case elevation::Status::prepare_failed:
+        return "prepare_failed";
+    case elevation::Status::apply_failed:
+        return "apply_failed";
+    case elevation::Status::rollback_failed:
+        return "rollback_failed";
+    case elevation::Status::transport_error:
+        return "transport_error";
+    case elevation::Status::protocol_error:
+        return "protocol_error";
     case elevation::Status::timeout:
         return "timeout";
     case elevation::Status::denied:

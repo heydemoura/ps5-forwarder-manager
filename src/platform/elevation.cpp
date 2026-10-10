@@ -1,172 +1,430 @@
-// ps5fwdgen - Sandbox elevation through a resident Lapy JB daemon.
+// ps5fwdgen - Sandbox elevation through PS5-Lapy-JB-Daemon.
+// Copyright (C) 2026 BlackBearReloaded
 // Copyright (C) 2026 heydemoura
 // SPDX-License-Identifier: GPL-3.0-or-later
+//
+// The boilerplate's sandbox-elevation client (resident Lapy service, then the
+// bundled one-shot helper), with ArkSama's resident daemon asked first.
 
 #include "platform/elevation.hpp"
 
+#include "platform/elevation_protocol.hpp"
+
+#include <array>
+#include <cerrno>
 #include <cstdio>
-#include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
-
-namespace elevation
-{
 
 namespace
 {
+constexpr char request_path[] = "/download0/elevate_proc";
+constexpr char result_path[] = "/download0/lapy_owned_result";
+// ArkSama's daemon polls for this every 250 ms and deletes it when done.
+constexpr char daemon_request_path[] = "/download0/etahen_jailbreak";
+constexpr unsigned daemon_polls = 30;
+constexpr unsigned resident_polls = 30;
+constexpr unsigned cancellation_grace_polls = 20;
+constexpr useconds_t poll_interval_us = 50000;
+const char *selected_path = "none";
 
-// The app's own sandbox path; the daemon sees it as
-// /mnt/sandbox/<TITLE_ID>_NNN/download0/etahen_jailbreak and deletes it when
-// the bump is done.
-constexpr char kRequestPath[] = "/download0/etahen_jailbreak";
-// Where a successful bump lets us reach the real console filesystem.
-constexpr char kProofDir[] = "/data";
-
-// The daemon polls every 250 ms; give it a generous window.
-constexpr int kPollIntervalUs = 100 * 1000;
-constexpr int kPollCount = 80; // ~8 seconds
-
-const char *g_path = "none";
-
-// A full /data proof: create, write, read back, compare, remove a
-// PID-specific file, AND list the directory. ShadowMountPlus can mount /data
-// into a sandboxed app so a file opens but readdir is refused; that is not
-// elevation, so the listing must succeed too.
-bool data_accessible() noexcept
+struct NetSockaddrIn
 {
-    char probe[128];
-    (void)std::snprintf(probe, sizeof(probe), "%s/.ps5fwdgen-elev-%ld", kProofDir,
-                        static_cast<long>(getpid()));
-    char payload[64];
-    const int payload_length =
-        std::snprintf(payload, sizeof(payload), "ps5fwdgen elevation proof pid=%ld\n",
-                      static_cast<long>(getpid()));
-    if (payload_length <= 0)
-        return false;
+    std::uint8_t length;
+    std::uint8_t family;
+    std::uint16_t port;
+    std::uint32_t address;
+    std::uint16_t virtual_port;
+    std::uint8_t zero[6];
+};
 
-    bool wrote = false;
-    {
-        const int fd = ::open(probe, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-        if (fd >= 0)
-        {
-            wrote =
-                ::write(fd, payload, static_cast<std::size_t>(payload_length)) == payload_length;
-            ::close(fd);
-        }
-    }
-    if (!wrote)
-        return false;
-
-    char readback[64] = {};
-    bool matched = false;
-    {
-        const int fd = ::open(probe, O_RDONLY);
-        if (fd >= 0)
-        {
-            const ssize_t got = ::read(fd, readback, sizeof(readback) - 1);
-            ::close(fd);
-            matched = got == payload_length &&
-                      std::memcmp(readback, payload, static_cast<std::size_t>(got)) == 0;
-        }
-    }
-    (void)::unlink(probe);
-    if (!matched)
-        return false;
-
-    // The listing must work too.
-    DIR *dir = ::opendir(kProofDir);
-    if (dir == nullptr)
-        return false;
-    const bool listed = ::readdir(dir) != nullptr;
-    ::closedir(dir);
-    return listed;
+extern "C"
+{
+    int sceNetConnect(int socket, const void *address, std::uint32_t address_length);
+    int sceNetSend(int socket, const void *data, std::size_t length, int flags);
+    int sceNetRecv(int socket, void *data, std::size_t length, int flags);
+    int sceNetSetsockopt(int socket, int level, int option, const void *value, std::uint32_t size);
+    int sceNetSocket(const char *name, int domain, int type, int protocol);
+    int sceNetSocketClose(int socket);
 }
 
-// Writes {"PID":"<pid>"} where the daemon expects it. Returns false when the
-// request file could not be created (no writable /download0).
-bool publish_request() noexcept
+class File
 {
-    char payload[64];
+  public:
+    explicit File(int descriptor = -1) noexcept : descriptor_{descriptor}
+    {
+    }
+    ~File()
+    {
+        if (descriptor_ >= 0)
+            (void)close(descriptor_);
+    }
+    File(const File &) = delete;
+    File &operator=(const File &) = delete;
+    [[nodiscard]] int get() const noexcept
+    {
+        return descriptor_;
+    }
+    int release() noexcept
+    {
+        const int descriptor = descriptor_;
+        descriptor_ = -1;
+        return descriptor;
+    }
+
+  private:
+    int descriptor_;
+};
+
+bool write_all(int descriptor, const void *data, std::size_t length) noexcept
+{
+    auto *bytes = static_cast<const char *>(data);
+    while (length != 0)
+    {
+        const auto count = write(descriptor, bytes, length);
+        if (count <= 0 || static_cast<std::size_t>(count) > length)
+            return false;
+        bytes += count;
+        length -= static_cast<std::size_t>(count);
+    }
+    return true;
+}
+
+bool publish_request(pid_t pid) noexcept
+{
+    std::array<char, 80> temporary{};
+    std::array<char, 64> body{};
+    const int body_length =
+        std::snprintf(body.data(), body.size(), "{\"PID\":%ld}\n", static_cast<long>(pid));
+    const int path_length = std::snprintf(temporary.data(), temporary.size(),
+                                          "/download0/.elevate_proc.%ld", static_cast<long>(pid));
+    if (body_length <= 0 || static_cast<std::size_t>(body_length) >= body.size() ||
+        path_length <= 0 || static_cast<std::size_t>(path_length) >= temporary.size())
+        return false;
+
+    (void)unlink(temporary.data());
+    File output{open(temporary.data(), O_WRONLY | O_CREAT | O_EXCL, 0644)};
+    if (output.get() < 0 ||
+        !write_all(output.get(), body.data(), static_cast<std::size_t>(body_length)))
+    {
+        (void)unlink(temporary.data());
+        return false;
+    }
+    const int descriptor = output.release();
+    if (close(descriptor) != 0 || rename(temporary.data(), request_path) != 0)
+    {
+        (void)unlink(temporary.data());
+        return false;
+    }
+    return true;
+}
+
+bool verify_data(pid_t pid, int &open_error) noexcept
+{
+    std::array<char, 80> path{};
+    constexpr std::array<char, 8> token{'L', 'A', 'P', 'Y', 'O', 'W', 'N', '\n'};
+    std::array<char, token.size()> actual{};
     const int length =
-        std::snprintf(payload, sizeof(payload), "{\"PID\":\"%ld\"}", static_cast<long>(getpid()));
-    if (length <= 0)
+        std::snprintf(path.data(), path.size(), "/data/.lapy_probe_%ld", static_cast<long>(pid));
+    if (length <= 0 || static_cast<std::size_t>(length) >= path.size())
+    {
+        open_error = EOVERFLOW;
         return false;
-    const int fd = ::open(kRequestPath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-    if (fd < 0)
+    }
+    (void)unlink(path.data());
+    File file{open(path.data(), O_RDWR | O_CREAT | O_EXCL, 0600)};
+    open_error = file.get() < 0 ? errno : 0;
+    const bool passed =
+        file.get() >= 0 && write_all(file.get(), token.data(), token.size()) &&
+        lseek(file.get(), 0, SEEK_SET) == 0 &&
+        read(file.get(), actual.data(), actual.size()) == static_cast<ssize_t>(actual.size()) &&
+        actual == token;
+    (void)unlink(path.data());
+    if (!passed)
         return false;
-    const bool ok = ::write(fd, payload, static_cast<std::size_t>(length)) == length;
-    ::close(fd);
-    return ok;
+    // ShadowMountPlus 1.7 mounts /data into a sandboxed app: files open and write, but
+    // listing a folder or lstat is refused (EPERM). That is not elevation, so the
+    // request goes on to Lapy, and waits for /data to list once Lapy is done.
+    DIR *folder = opendir("/data");
+    if (!folder)
+    {
+        open_error = errno != 0 ? errno : EPERM;
+        return false;
+    }
+    (void)closedir(folder);
+    return true;
 }
 
-bool request_consumed() noexcept
+bool wait_for_data(pid_t pid, unsigned polls, int &open_error, bool &proof_failed) noexcept
 {
-    return ::access(kRequestPath, F_OK) != 0;
+    for (unsigned poll = 0; poll < polls; ++poll)
+    {
+        if (verify_data(pid, open_error))
+            return true;
+        if (open_error == 0)
+        {
+            proof_failed = true;
+            return false;
+        }
+        (void)usleep(poll_interval_us);
+    }
+    return false;
 }
 
+void report_result(int descriptor, bool data_ok, int open_error) noexcept
+{
+    std::array<char, 96> result{};
+    const int length = std::snprintf(result.data(), result.size(), "DATA_OK=%d OPEN_ERRNO=%d\n",
+                                     data_ok, open_error);
+    if (length > 0 && static_cast<std::size_t>(length) < result.size())
+        (void)write_all(descriptor, result.data(), static_cast<std::size_t>(length));
+}
+
+struct ResidentResult
+{
+    elevation::Status status;
+    bool allow_helper;
+};
+
+ResidentResult try_resident(pid_t pid) noexcept
+{
+    using elevation::Status;
+    File result{open(result_path, O_WRONLY | O_CREAT | O_TRUNC, 0644)};
+    if (result.get() < 0)
+        return {Status::unavailable, true};
+    (void)fchmod(result.get(), 0644);
+    if (seteuid(geteuid()) != 0)
+        return {Status::prepare_failed, false};
+    if (!publish_request(pid))
+        return {Status::transport_error, true};
+
+    int open_error = 0;
+    bool proof_failed = false;
+    if (wait_for_data(pid, resident_polls, open_error, proof_failed))
+    {
+        report_result(result.get(), true, 0);
+        return {Status::ok, false};
+    }
+    if (proof_failed)
+    {
+        report_result(result.get(), false, open_error);
+        return {Status::apply_failed, false};
+    }
+
+    errno = 0;
+    if (unlink(request_path) != 0)
+    {
+        // A missing marker means a resident service claimed it. Never start a
+        // second helper for that launch; give the claimed request more time.
+        if (errno != ENOENT)
+            return {Status::transport_error, false};
+        if (wait_for_data(pid, cancellation_grace_polls, open_error, proof_failed))
+        {
+            report_result(result.get(), true, 0);
+            return {Status::ok, false};
+        }
+        report_result(result.get(), false, open_error);
+        return {proof_failed ? Status::apply_failed : Status::timeout, false};
+    }
+
+    // The marker was cancelled before fallback. Wait once more in case a
+    // resident read it immediately before cancellation, then choose one path.
+    if (wait_for_data(pid, cancellation_grace_polls, open_error, proof_failed))
+    {
+        report_result(result.get(), true, 0);
+        return {Status::ok, false};
+    }
+    (void)unlink(result_path);
+    return {proof_failed ? Status::apply_failed : Status::timeout, !proof_failed};
+}
+
+// Asks a resident ArkSama daemon (etaHEN's jailbreak-on-demand file). allow_helper
+// is true only when nothing claimed the request.
+ResidentResult try_daemon(pid_t pid) noexcept
+{
+    using elevation::Status;
+    std::array<char, 64> body{};
+    const int length =
+        std::snprintf(body.data(), body.size(), "{\"PID\":\"%ld\"}", static_cast<long>(pid));
+    if (length <= 0 || static_cast<std::size_t>(length) >= body.size())
+        return {Status::invalid_request, true};
+    {
+        File request{open(daemon_request_path, O_WRONLY | O_CREAT | O_TRUNC, 0666)};
+        if (request.get() < 0 ||
+            !write_all(request.get(), body.data(), static_cast<std::size_t>(length)))
+        {
+            (void)unlink(daemon_request_path);
+            return {Status::unavailable, true};
+        }
+    }
+
+    int open_error = 0;
+    bool proof_failed = false;
+    bool claimed = false;
+    for (unsigned poll = 0; poll < daemon_polls && !claimed; ++poll)
+    {
+        if (wait_for_data(pid, 1, open_error, proof_failed))
+            return {Status::ok, false};
+        if (proof_failed)
+            return {Status::apply_failed, false};
+        // Only a missing file means the daemon took it; the sandbox can refuse
+        // access() with other errors.
+        struct stat status
+        {
+        };
+        errno = 0;
+        claimed = stat(daemon_request_path, &status) != 0 && errno == ENOENT;
+    }
+    if (!claimed)
+    {
+        errno = 0;
+        claimed = unlink(daemon_request_path) != 0 && errno == ENOENT;
+        if (!claimed)
+            return {Status::timeout, true};
+    }
+    // Claimed: give the credential change a moment, and never start a helper.
+    if (wait_for_data(pid, cancellation_grace_polls, open_error, proof_failed))
+        return {Status::ok, false};
+    return {proof_failed ? Status::apply_failed : Status::denied, false};
+}
+
+bool send_all(int socket, const void *data, std::size_t size) noexcept
+{
+    return elevation::wire::transfer(static_cast<const std::uint8_t *>(data), size,
+                                     [socket](const auto *bytes, std::size_t remaining)
+                                     { return sceNetSend(socket, bytes, remaining, 0); });
+}
+
+bool receive(int socket, elevation::wire::Message &message) noexcept
+{
+    return elevation::wire::transfer(reinterpret_cast<std::uint8_t *>(&message), sizeof(message),
+                                     [socket](auto *bytes, std::size_t remaining)
+                                     { return sceNetRecv(socket, bytes, remaining, 0); });
+}
+
+elevation::Status exchange(int socket, const elevation::wire::Message &request) noexcept
+{
+    using namespace elevation;
+    if (!send_all(socket, &request, sizeof(request)))
+        return Status::transport_error;
+    wire::Message reply{};
+    if (!receive(socket, reply))
+        return Status::transport_error;
+    if (wire::matches(reply, request, wire::Kind::response) && reply.status != Status::ok)
+        return reply.status;
+    if (!wire::matches(reply, request, wire::Kind::prepare) || reply.status != Status::ok)
+        return Status::protocol_error;
+
+    wire::Message prepared = request;
+    prepared.kind = wire::Kind::prepared;
+    if (seteuid(geteuid()) != 0)
+        prepared.status = Status::prepare_failed;
+    if (!send_all(socket, &prepared, sizeof(prepared)) || !receive(socket, reply))
+        return Status::transport_error;
+    if (!wire::matches(reply, request, wire::Kind::response))
+        return Status::protocol_error;
+    if (prepared.status != Status::ok)
+        return Status::prepare_failed;
+    return reply.status;
+}
+
+elevation::Status run_helper(const char *path, const elevation::wire::Message &request) noexcept
+{
+    using elevation::Status;
+    if (path == nullptr)
+        return Status::invalid_request;
+    File helper{open(path, O_RDONLY)};
+    if (helper.get() < 0)
+        return Status::unavailable;
+    const int socket = sceNetSocket("lapy_owned_helper", 2, 1, 6);
+    if (socket < 0)
+        return Status::transport_error;
+
+    Status status = Status::transport_error;
+    constexpr int socket_level = 0xffff;
+    constexpr int timeout_us = elevation::wire::io_timeout_us;
+    bool configured = true;
+    for (const int option : {0x1105, 0x1106, 0x1109})
+        configured &=
+            sceNetSetsockopt(socket, socket_level, option, &timeout_us, sizeof(timeout_us)) >= 0;
+    constexpr std::uint16_t port = 9021;
+    const NetSockaddrIn endpoint{sizeof(NetSockaddrIn),
+                                 2,
+                                 static_cast<std::uint16_t>((port << 8) | (port >> 8)),
+                                 0x0100007f,
+                                 0,
+                                 {0}};
+    if (configured && sceNetConnect(socket, &endpoint, sizeof(endpoint)) >= 0)
+    {
+        std::array<std::uint8_t, 4096> buffer{};
+        bool streamed = true;
+        for (;;)
+        {
+            const auto count = read(helper.get(), buffer.data(), buffer.size());
+            if (count == 0)
+                break;
+            if (count < 0 || !send_all(socket, buffer.data(), static_cast<std::size_t>(count)))
+            {
+                streamed = false;
+                break;
+            }
+        }
+        if (streamed)
+            status = exchange(socket, request);
+    }
+    (void)sceNetSocketClose(socket);
+    return status;
+}
 } // namespace
 
-Status request(Capability capability, const char *helper_path) noexcept
+elevation::Status elevation::request(Capability capability, const char *helper_path) noexcept
 {
-    (void)helper_path;
+    selected_path = "none";
     if (capability != Capability::filesystem)
+        return Status::unsupported_capability;
+    const pid_t pid = getpid();
+    wire::Message message{};
+    message.pid = static_cast<std::uint32_t>(pid);
+    message.capability = capability;
+    if (wire::validate(message) != Status::ok)
         return Status::invalid_request;
 
-    // Already outside the sandbox (etaHEN, a previous launch, or a resident
-    // service that bumped us before we asked)?
-    if (data_accessible())
+    int open_error = 0;
+    if (verify_data(pid, open_error))
     {
-        g_path = "existing";
+        selected_path = "existing";
         return Status::ok;
     }
+    if (open_error == 0)
+        return Status::apply_failed;
 
-    if (!publish_request())
+    const ResidentResult daemon = try_daemon(pid);
+    if (!daemon.allow_helper)
     {
-        g_path = "none";
-        return Status::unavailable;
+        selected_path = "daemon";
+        return daemon.status;
     }
 
-    // Wait for the daemon to pick up the request (it deletes the file when
-    // the bump is applied), checking for access along the way.
-    bool consumed = false;
-    for (int poll = 0; poll < kPollCount; ++poll)
+    const ResidentResult resident = try_resident(pid);
+    if (!resident.allow_helper)
     {
-        ::usleep(kPollIntervalUs);
-        if (request_consumed())
-        {
-            consumed = true;
-            break;
-        }
-        if (data_accessible())
-        {
-            g_path = "daemon";
-            return Status::ok;
-        }
+        selected_path = "resident";
+        return resident.status;
     }
+    selected_path = "helper";
+    const Status helper = run_helper(helper_path, message);
+    if (helper != Status::ok)
+        return helper;
 
-    // Give the credential change a moment to settle after the file vanished,
-    // then make the real proof the only thing that authorises /data use.
-    for (int settle = 0; settle < 10; ++settle)
-    {
-        if (data_accessible())
-        {
-            g_path = "daemon";
-            return Status::ok;
-        }
-        ::usleep(kPollIntervalUs);
-    }
-
-    // Tidy up a request the daemon never read, so a later launch starts clean.
-    if (!consumed)
-        (void)::unlink(kRequestPath);
-    g_path = "none";
-    return consumed ? Status::denied : Status::timeout;
+    bool proof_failed = false;
+    return wait_for_data(pid, cancellation_grace_polls, open_error, proof_failed) ? Status::ok
+           : proof_failed ? Status::apply_failed
+                          : Status::timeout;
 }
 
-const char *path() noexcept
+const char *elevation::path() noexcept
 {
-    return g_path;
+    return selected_path;
 }
-
-} // namespace elevation
