@@ -86,14 +86,20 @@ failed `/data` proof never authorizes privileged work.
 `tools/build-lapy-helper.py` pins:
 
 - mpereiraesaa's Lapy commit
-  [`54a095c0f19161825e845daa760a03b446e654fa`](https://github.com/mpereiraesaa/PS5-Lapy-JB-Daemon/commit/54a095c0f19161825e845daa760a03b446e654fa),
-  proposed upstream in [PR #48](https://github.com/mpereiraesaa/PS5-Lapy-JB-Daemon/pull/48);
-- official PS5 Payload SDK v0.40, used only for the helper because v0.41
-  changed the credential-attribute API; and
+  [`b48b7d7236eca25c7b9dfd6c040c763ae05dde80`](https://github.com/mpereiraesaa/PS5-Lapy-JB-Daemon/commit/b48b7d7236eca25c7b9dfd6c040c763ae05dde80),
+  which includes the donor-release fix
+  ([PR #48](https://github.com/mpereiraesaa/PS5-Lapy-JB-Daemon/pull/48)) and the
+  firmware 13.60 credential-attribute fix
+  ([PR #49](https://github.com/mpereiraesaa/PS5-Lapy-JB-Daemon/pull/49));
+- official PS5 Payload SDK v0.42, the same release as the application build; and
 - the pinned `ps5log/1` header used by upstream's build.
 
-The normal boilerplate application build continues to use Payload SDK v0.42.
-The two toolchains are deliberately separate.
+The helper needs SDK v0.42 or later. The SDK's startup code (`crt1.o`) looks up
+kernel addresses per firmware, and v0.40 knows nothing above 13.20: on 13.40,
+13.42 or 13.60 its `__kernel_init` fails, the helper traps before `main()`
+(SIGILL in `_start`), and the app reports `transport_error`. v0.41 added 13.40
+and v0.42 added 13.60. The helper and the application are still built by
+separate invocations, each with its own copy of the SDK.
 
 ## Validation and firmware caveats
 

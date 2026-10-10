@@ -54,7 +54,7 @@ is not linked into any PS5 application, runtime, or package artifact.
 Forwarder Manager's build (`APP_LAPY_HELPER=1`, the default) and the
 sandbox-elevation example fetch
 [mpereiraesaa's PS5-Lapy-JB-Daemon](https://github.com/mpereiraesaa/PS5-Lapy-JB-Daemon)
-at commit `54a095c0f19161825e845daa760a03b446e654fa`, invokes its unmodified
+at commit `b48b7d7236eca25c7b9dfd6c040c763ae05dde80`, invokes its unmodified
 `owned-helper` target for the selected application's exact title and packages
 the generated helper ELF as `lapy.elf`, with its manifest and Lapy's MIT
 license (`licenses/Lapy-MIT.txt`), in every release ZIP. The shared protocol header
@@ -68,9 +68,9 @@ source is copied or modified here.
 
 The helper build also uses the pinned `ps5log/1` header from
 [mpereiraesaa/ps5-agc-gears](https://github.com/mpereiraesaa/ps5-agc-gears/tree/1ae1f9182abd2770c131b97419034fb85173c2dc/native/ps5log),
-GPL-3.0-or-later, and the official PS5 Payload SDK v0.40. Those build inputs
-remain under ignored `.deps/lapy/`; the normal application toolchain remains
-the separately pinned Payload SDK v0.42.
+GPL-3.0-or-later, and the official PS5 Payload SDK v0.42 (the first release
+whose startup supports firmware 13.60). Those build inputs remain under ignored
+`.deps/lapy/`, separate from the application's own copy of the SDK.
 
 ## Optional PacBrew dependencies
 

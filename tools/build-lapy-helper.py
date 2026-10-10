@@ -19,11 +19,13 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / ".deps/lapy"
-LAPY_COMMIT = "54a095c0f19161825e845daa760a03b446e654fa"
+LAPY_COMMIT = "b48b7d7236eca25c7b9dfd6c040c763ae05dde80"
 LAPY = CACHE / f"PS5-Lapy-JB-Daemon-{LAPY_COMMIT[:7]}"
-SDK = CACHE / "ps5-payload-sdk-v0.40"
-SDK_URL = "https://github.com/ps5-payload-dev/sdk/releases/download/v0.40/ps5-payload-sdk.zip"
-SDK_SHA256 = "617fb702df3551f709b2db0a014e618cf39334c9348395a9b005e6504d076a42"
+# v0.42 is the first SDK whose startup supports firmware 13.40-13.60; v0.40
+# fails __kernel_init with ENOSYS there, so the helper dies before main().
+SDK = CACHE / "ps5-payload-sdk-v0.42"
+SDK_URL = "https://github.com/ps5-payload-dev/sdk/releases/download/v0.42/ps5-payload-sdk.zip"
+SDK_SHA256 = "8cfbc7cd5811e719eb4f0c47eea668d3dc7b40bc8ab11c4a5031d40c23ec02da"
 PS5LOG = CACHE / "ps5log-1ae1f918"
 PS5LOG_URL = (
     "https://raw.githubusercontent.com/mpereiraesaa/ps5-agc-gears/"
@@ -88,7 +90,7 @@ def fetch_sdk():
         return
     if SDK.exists():
         raise RuntimeError(f"{SDK} is incomplete or does not match the pinned archive")
-    archive = CACHE / "ps5-payload-sdk-v0.40.zip"
+    archive = CACHE / "ps5-payload-sdk-v0.42.zip"
     download(SDK_URL, archive, SDK_SHA256)
     staging = Path(tempfile.mkdtemp(prefix="lapy-sdk-", dir=CACHE))
     try:
@@ -135,7 +137,7 @@ def main():
     fetch_ps5log()
     environment = os.environ.copy()
     environment.update(PS5_PAYLOAD_SDK=str(SDK), LOGGING_CLIENT=str(PS5LOG))
-    # Optional: a separate llvm-config for this SDK v0.40 build only, for hosts
+    # Optional: a separate llvm-config for this helper build only, for hosts
     # whose default llvm-config reports a different clang than the one used.
     if environment.get("LAPY_LLVM_CONFIG"):
         environment["LLVM_CONFIG"] = environment["LAPY_LLVM_CONFIG"]
