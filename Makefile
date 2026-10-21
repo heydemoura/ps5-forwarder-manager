@@ -142,7 +142,7 @@ doctor:
 	@printf '%s\n' '==> [doctor] Checking the Linux/WSL host without changing it'
 	@bash tools/doctor.sh
 
-test: test-unit test-integration test-elevation test-update-check test-self-update test-rom-name test-settings test-features test-x360-library test-psx-library test-youtube test-at9-trim test-mp4-aac
+test: test-unit test-integration test-elevation test-update-check test-self-update test-rom-name test-settings test-features test-x360-library test-psx-library test-eden-library test-youtube test-at9-trim test-mp4-aac
 
 .PHONY: app-assets
 # Rebuild the app's own sce_sys presentation assets (icon0.png, pic0.dds,
@@ -202,10 +202,25 @@ test-psx-library:
 		-o build/tests/psfwd.o
 	@$(HOST_CXX) $(HOST_TEST_CXXFLAGS) -Isrc -Iexternal/ps5-forwarder-format/include -g \
 		-fsanitize=address,undefined -fno-sanitize-recover=all tests/test_psx_library.cpp \
-		src/fwd/psx_library.cpp src/fwd/x360_library.cpp src/fwd/library_game.cpp \
+		src/fwd/psx_library.cpp src/fwd/x360_library.cpp src/fwd/library_game.cpp src/fwd/eden_library.cpp \
 		src/fwd/forwarder.cpp src/fwd/store.cpp src/core/json.cpp build/tests/psfwd.o \
 		$(HOST_TEST_LDFLAGS) -o build/tests/test_psx_library
 	@build/tests/test_psx_library
+
+.PHONY: test-eden-library
+test-eden-library:
+	@mkdir -p build/tests
+	@$(HOST_CC) -Iexternal/ps5-forwarder-format/include -c external/ps5-forwarder-format/src/psfwd.c \
+		-o build/tests/eden-psfwd.o
+	@# stb's SIMD sRGB lookup biases a pointer before its table; use ASan for that unit.
+	@$(HOST_CXX) $(HOST_TEST_CXXFLAGS) -Isrc -g -fsanitize=address -c src/fwd/image.cpp \
+		-o build/tests/eden-image.o
+	@$(HOST_CXX) $(HOST_TEST_CXXFLAGS) -Isrc -Iexternal/ps5-forwarder-format/include -g \
+		-fsanitize=address,undefined -fno-sanitize-recover=all tests/test_eden_library.cpp \
+		src/fwd/eden_library.cpp src/fwd/library_game.cpp src/fwd/psx_library.cpp src/fwd/x360_library.cpp \
+		src/fwd/forwarder.cpp src/fwd/store.cpp src/core/json.cpp build/tests/eden-psfwd.o build/tests/eden-image.o \
+		$(HOST_TEST_LDFLAGS) -o build/tests/test_eden_library
+	@build/tests/test_eden_library
 
 test-youtube:
 	@mkdir -p build/tests

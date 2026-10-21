@@ -23,6 +23,19 @@ The screenshots use demo forwarders for freeware and open-source games.
   `--exit-after-game` flag, and launch arguments.
 - Picks the ROM (and optional `.at9` music) with a built-in file browser over
   the console filesystem.
+- Makes tiles for Nintendo Switch games played with
+  [ProsperoEden](https://github.com/Swordpdf/ProsperoEden): pick a game with its
+  cached title and cover, which also becomes the tile icon. Reads `game_files`
+  from `/data/prosperoeden/config/prosperoeden.json` (default:
+  `/data/prosperoeden`) and lists ROMs in its `roms/`, including games in their
+  own folders. Names and TGA covers come from `/data/prosperoeden/covers`.
+  Recognises `.nsp`, `.xci`, `.nsz` and `.xcz`; compressed games need a
+  ProsperoEden version that supports them. Recognisable update/DLC filenames
+  and title-ID tags are excluded; encrypted package contents are not read.
+  A file browser remains available. Games inside the configured `roms/` keep
+  their relative path, so tiles keep working when the game files folder moves;
+  other files use their full path. To fix an existing tile that lost its
+  folders, edit it, pick its game again, and save.
 - Fetches tile icons and backgrounds from [SteamGridDB](https://www.steamgriddb.com/)
   or from any image file, encoding them to the exact
   formats the PS5 shell expects: a 512x512 PNG icon and 3840x2160 BC7 DDS

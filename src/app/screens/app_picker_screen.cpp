@@ -71,6 +71,7 @@ class ListPickerScreen final : public Screen
             hui::ui::ListItem item;
             item.title = entry.title;
             item.value = entry.value;
+            item.subtitle = entry.subtitle;
             items.push_back(std::move(item));
         }
         view_.set_items(std::move(items));

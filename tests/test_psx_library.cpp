@@ -116,7 +116,7 @@ int main()
     // The forwarder gives the full path as --rom, with the exit flag, and reads it back.
     expect(fwd::library_of("PPSA98510") == fwd::GameLibrary::psx &&
                fwd::library_of("PPSA50011") == fwd::GameLibrary::x360 &&
-               fwd::library_of("PPSA99008") == fwd::GameLibrary::none,
+               fwd::library_of("PPSA99008") == fwd::GameLibrary::eden,
            "libraries by target");
     fwd::Forwarder forwarder;
     forwarder.title_id = "PPSA99778";

@@ -19,8 +19,9 @@ struct Context;
 struct PickItem
 {
     std::string title;
-    std::string value; // shown at the end of the row ("no box art yet")
-    // The box art, encoded (PNG or JPEG); unset when there is none. Called a
+    std::string value;    // shown at the end of the row ("no box art yet")
+    std::string subtitle; // e.g. a ROM path, to distinguish games sharing a title
+    // The box art, encoded (PNG, JPEG or TGA); unset when there is none. Called a
     // picture at a time around the focus.
     std::function<std::vector<unsigned char>()> art;
 };

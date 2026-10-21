@@ -175,6 +175,11 @@ must be loaded on the console for a forwarder tile to launch its target.
 | [YouTube](https://www.youtube.com/) | Theme-music search and audio, via its InnerTube API (`src/net/youtube.cpp`); the client settings follow [yt-dlp](https://github.com/yt-dlp/yt-dlp)'s `visionos` client |
 | [BrinooTk/PS5X360](https://github.com/BrinooTk/PS5X360) | `src/fwd/x360_library.cpp` follows its library scan, default game folders and STFS package header reading (`src/launcher.cpp`, `include/xbox360ps5/game_paths.hpp`), to list the games it finds; MIT, Copyright (c) 2026 Xbox360PS5 contributors |
 
+The pinned ps5-opengl SDK 1.0.0 archive is downloaded from the
+[MyLuxy/overdrive-deps mirror](https://github.com/MyLuxy/overdrive-deps/releases/tag/ps5-opengl-v1.0.0)
+because the original repository is unavailable. The original archive and SDK
+manifest SHA-256 pins are retained.
+
 Artwork fetched from SteamGridDB is contributed by its community and belongs to
 its uploaders; it is used here only to build a personal home-screen tile. Music
 fetched from YouTube belongs to its rights holders; the app keeps only a short

@@ -5,6 +5,7 @@
 #include "fwd/library_game.hpp"
 
 #include "fwd/forwarder.hpp"
+#include "fwd/eden_library.hpp"
 #include "fwd/psx_library.hpp"
 #include "fwd/x360_library.hpp"
 
@@ -15,6 +16,8 @@ std::string library_game_name(const std::string &target, const std::string &path
 {
     switch (library_of(target))
     {
+    case GameLibrary::eden:
+        return eden_game_title(path);
     case GameLibrary::x360:
         return x360_game_name(path);
     case GameLibrary::psx:
