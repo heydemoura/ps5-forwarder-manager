@@ -25,12 +25,14 @@ struct Argument
 };
 
 // Whose game list the edit screen offers for a target (fwd/x360_library.hpp,
-// fwd/psx_library.hpp); none: a ROM file is picked from the file browser.
+// fwd/psx_library.hpp, fwd/eden_library.hpp); none: a ROM file is picked
+// from the file browser.
 enum class GameLibrary : std::uint8_t
 {
     none,
     x360, // PS5X360
     psx,  // SwanStationPS5
+    eden, // ProsperoEden
 };
 
 // A known target app, for the picker.
@@ -48,7 +50,7 @@ struct Target
     // Takes the game as its only argument, a full path, instead of --rom
     // (PS5X360, see fwd/x360_library.hpp).
     bool game_path = false;
-    GameLibrary library = GameLibrary::none; // games listed for it, given by full path
+    GameLibrary library = GameLibrary::none; // games listed for it, with their launch paths
 };
 
 // The built-in emulator targets the site offers, plus "generic", without the
@@ -64,6 +66,11 @@ bool takes_game_path(const std::string &title_id);
 
 // The emulator's game list the target is picked from; none for a ROM file.
 GameLibrary library_of(const std::string &title_id);
+
+// ROM selected in the file browser: ProsperoEden takes the path inside roms/
+// (portable with its game files folder), or the full path outside it. Other
+// file-picker targets keep their existing file-name-only arguments.
+std::string rom_path_for(const std::string &title_id, const std::string &path);
 
 // A friendly name for a target title ID (emulator name, or the ID itself).
 std::string target_display_name(const std::string &title_id);

@@ -51,9 +51,10 @@ std::vector<Target> known_targets()
 {
     // The target apps PS5 Forwarder Builder supports (from ps5-forwarder.mph.am):
     static const Target kAll[] = {
-        {"PPSA99008", "ProsperoEden", true, true}, // Nintendo Switch (Eden)
-        {"PPSA99764", "Porpoise", true, false},    // GameCube / Wii (RetroArch)
-        {"PPSA99203", "PS5SX2", true, false},      // PlayStation 2 (PCSX2)
+        {"PPSA99008", "ProsperoEden", true, true, false, Feature::none, false,
+         GameLibrary::eden},                    // Nintendo Switch (Eden)
+        {"PPSA99764", "Porpoise", true, false}, // GameCube / Wii (RetroArch)
+        {"PPSA99203", "PS5SX2", true, false},   // PlayStation 2 (PCSX2)
         {"PPSA50011", "PS5X360", true, false, false, Feature::none, true,
          GameLibrary::x360}, // Xbox 360
         {"PPSA98510", "SwanStationPS5", true, true, false, Feature::none, false,
@@ -67,6 +68,19 @@ std::vector<Target> known_targets()
         if (enabled(target.feature))
             targets.push_back(target);
     return targets;
+}
+
+std::string rom_path_for(const std::string &title_id, const std::string &path)
+{
+    if (title_id == "PPSA99008")
+    {
+        // Use the first roms/ component: a game may itself contain a folder
+        // named roms. Match a whole component, never e.g. myroms/.
+        const std::size_t roms = path.find("/roms/");
+        return roms == std::string::npos ? path : path.substr(roms + 6);
+    }
+    const std::size_t slash = path.find_last_of('/');
+    return slash == std::string::npos ? path : path.substr(slash + 1);
 }
 
 std::vector<Argument> Forwarder::resolved_args() const

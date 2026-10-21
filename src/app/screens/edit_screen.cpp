@@ -18,6 +18,7 @@
 #include "audio/at9.hpp"
 #include "core/tween.hpp"
 #include "fwd/image.hpp"
+#include "fwd/eden_library.hpp"
 #include "fwd/library_game.hpp"
 #include "fwd/psx_library.hpp"
 #include "fwd/rom_name.hpp"
@@ -280,11 +281,14 @@ class EditScreen final : public Screen
     void open_game_list(Context &context)
     {
         const bool x360 = current_target().library == GameLibrary::x360;
+        const bool eden = current_target().library == GameLibrary::eden;
         if (x360)
         {
             x360_install_ = find_x360_install(context.settings.forwarders_root);
             games_ = read_x360_library(x360_install_, x360_game_paths(x360_install_));
         }
+        else if (eden)
+            games_ = read_eden_library();
         else
             games_ = read_psx_library(psx_game_paths(), std::string(kPsxDataRoot) + "/covers");
         PickList list;
@@ -293,14 +297,17 @@ class EditScreen final : public Screen
                        " where " + target_display_name(forwarder_.target) + " looks for them";
         if (x360 && x360_install_.empty())
             list.caption += " (not found in " + context.settings.forwarders_root + ")";
-        list.fallback_title = "Choose a file or folder";
-        list.fallback_caption = "For a game in a folder added in the emulator's settings";
+        list.fallback_title = eden ? "Choose a ROM file" : "Choose a file or folder";
+        list.fallback_caption = eden ? "Browse for a ROM outside this list"
+                                     : "For a game in a folder added in the emulator's settings";
         list.no_art = "no cover";
         for (const LibraryGame &game : games_)
         {
             PickItem item;
             item.title = game.name;
             item.value = game.kind;
+            if (eden)
+                item.subtitle = game.path;
             item.art = [game]() { return game_art(game); };
             list.items.push_back(std::move(item));
         }
@@ -321,6 +328,15 @@ class EditScreen final : public Screen
     void open_game_file(Context &context)
     {
         EditScreen *self = this;
+        if (current_target().library == GameLibrary::eden)
+        {
+            const std::string files = eden_game_files();
+            const std::string roms = files + (files == "/" ? "roms" : "/roms");
+            context.push(make_file_picker_screen(context, roms, {".nsp", ".xci", ".nsz", ".xcz"},
+                                                 [self](const std::string &path)
+                                                 { self->pick_game(eden_game_from_file(path)); }));
+            return;
+        }
         if (current_target().library == GameLibrary::psx)
         {
             context.push(make_file_picker_screen(context, std::string(kPsxDataRoot) + "/games", {},
@@ -626,9 +642,7 @@ class EditScreen final : public Screen
                 context, "/data", {},
                 [self](const std::string &path)
                 {
-                    const std::size_t slash = path.find_last_of('/');
-                    self->forwarder_.rom =
-                        slash == std::string::npos ? path : path.substr(slash + 1);
+                    self->forwarder_.rom = rom_path_for(self->forwarder_.target, path);
                     if (self->forwarder_.display_name.empty())
                         self->forwarder_.display_name = name_from_rom(self->forwarder_.rom);
                     self->dirty_ = true;

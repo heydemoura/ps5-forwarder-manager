@@ -18,7 +18,8 @@ struct LibraryGame
 };
 
 // The name to show for the game a forwarder of target starts at path: the
-// game's folder for PS5X360's extracted games, the title SwanStationPS5 shows.
+// game's folder for PS5X360's extracted games, a readable ROM title for
+// SwanStationPS5 and ProsperoEden. Does not read files while drawing.
 std::string library_game_name(const std::string &target, const std::string &path);
 
 } // namespace fwd

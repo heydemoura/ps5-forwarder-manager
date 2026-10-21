@@ -3,6 +3,68 @@
 This records what was verified for the Forwarder Manager and the one
 step that needs the owner's SteamGridDB API key.
 
+## ProsperoEden library integration (2026-10-21)
+
+Console: `192.168.0.190`, firmware 12.20 (`0x12200005`), elfldr on TCP 9021,
+FTP on TCP 2121 and ShadowMountPlus folder deployment. Tested the integration
+on top of `5134ef0`, using the development input harness to drive the real UI.
+
+- With `game_files` absent, the game picker listed the console's ten games
+  under `/data/prosperoeden/roms`, using the cached names and TGA covers in
+  `/data/prosperoeden/covers`. Selecting a game and generating a tile imported
+  its cached name, encoded a valid 512x512 PNG icon and saved its relative
+  filename as `--rom`.
+- Temporarily set `game_files` to an isolated fixture directory. Reopening
+  the picker used that location immediately and listed its two nested games,
+  with relative paths under their names. Named update/DLC siblings and files
+  under `mods/` were excluded. The cached name and cover were still read from
+  `/data/prosperoeden/covers`, rather than the configured game files folder.
+- Generated the nested game's tile through the UI. Its saved arguments were
+  `--rom`, `Nested Game/Game.nsp`, `--exit-after-game`; its name matched the
+  cache and its icon was a valid 512x512 PNG.
+- Reopened that tile, chose the file-browser fallback (which started in the
+  configured `roms/`) and selected a file outside that folder. Saving retained
+  the file's full path, the exit flag, and the tile's existing name and icon.
+
+Restored ProsperoEden's config byte for byte, removed the temporary tiles,
+cached metadata and fixtures, and closed the manager. Real game startup in
+ProsperoEden was not exercised. The default library check used real installed
+ROMs; the configured-location check used small path-test fixtures.
+
+Host validation: `make test` passed, with the existing libatrac9 sanitizer
+diagnostics and the MP4/AAC test skipped because host FAAD2 is unavailable.
+The new library tests check config fallbacks, relative paths, filename-based
+add-on filtering, cover hashes, TGA-to-PNG conversion and forwarder write/read.
+Image conversion is checked under ASan; the library is checked under ASan and
+UBSan. Portable lint, focused static analysis of the new library, the PS5 build,
+and the clean-room runtime digest check passed. Full `make lint` still stops
+on existing include-path and vendored audio-code diagnostics.
+
+## Issue #26 on the test console (2026-10-21)
+
+Console: `192.168.0.190`, firmware 12.20 (`kernel_get_fw_version()` returned
+`0x12200005`), elfldr on TCP 9021, FTP on TCP 2121, ShadowMountPlus folder
+deployment. Tested the issue #26 patch rebased onto `5134ef0`.
+
+- Built and deployed `PPSA99930`. FTP exposed the deployed executable as an
+  ELF; all its loadable (`PT_LOAD`) segments match `build/eboot.elf` byte for
+  byte.
+- Launched the installed app through `sceSystemServiceLaunchApp`. The bundled
+  Lapy helper elevated it successfully (`status=ok path=helper`), and it
+  rendered the home screen (`first-swap ok`, `ready splash_hidden=1`).
+- Drove the real edit screen and file picker using the development input
+  harness. Picking `/data/000-issue26-test/roms/Nested Game/Game.nsp` displayed
+  `Nested Game/Game.nsp`; saving wrote that exact value after `--rom` in the
+  tile's `forwarder.json`.
+- Reopened the tile and picked `/data/000-issue26-test/Outside Game.nsp`.
+  The edit screen and saved `--rom` value retained the full path. Both saves
+  preserved `--exit-after-game`.
+
+The ROMs were small path-test fixtures. This verifies the manager's picker,
+editing and generated arguments on hardware; starting a real game in
+ProsperoEden was not tested. Temporary fixtures and the test tile were removed
+after testing.
+
 ## Verified on the console (192.168.0.77, firmware 12.20)
 
 - **Kit-based OpenGL build** deploys over FTP, launches, and renders at a
