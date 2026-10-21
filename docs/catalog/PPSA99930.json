@@ -5,9 +5,9 @@
   "description": "Create and edit home-screen forwarders that launch emulators and other apps with custom art, music and arguments.",
   "license": "GPL-3.0",
   "author": "heydemoura",
-  "version": "00.001.004",
+  "version": "00.001.005",
   "source_repo": "https://github.com/heydemoura/ps5-forwarder-manager",
-  "artifact_url": "https://github.com/heydemoura/ps5-forwarder-manager/releases/download/00.001.004/PPSA99930.zip",
-  "sha256": "07f536bd2718dd36efe862b82b1d830d7fbcb6c0079fbe4059765e380a1cf45b",
-  "icon_url": "https://raw.githubusercontent.com/heydemoura/ps5-forwarder-manager/00.001.004/sce_sys/icon0.png"
+  "artifact_url": "https://github.com/heydemoura/ps5-forwarder-manager/releases/download/00.001.005/PPSA99930.zip",
+  "sha256": "1cc330e293243b74886cb85e9bbf2a2e78bf69c268bc60a5dfb92cfd8c7afb3c",
+  "icon_url": "https://raw.githubusercontent.com/heydemoura/ps5-forwarder-manager/00.001.005/sce_sys/icon0.png"
 }
