@@ -130,6 +130,10 @@ int main()
     expect(fwd::library_of("PPSA99008") == fwd::GameLibrary::eden &&
                fwd::library_game_name("PPSA99008", "Folder/Game [v0].nsp") == "Game",
            "Eden target and display name");
+    // ProsperoEden's second title ID shares the library and game-naming rules.
+    expect(fwd::library_of("PPSA99016") == fwd::GameLibrary::eden &&
+               fwd::library_game_name("PPSA99016", "Folder/Game [v0].nsp") == "Game",
+           "second Eden title ID and display name");
     const auto picked = fwd::eden_game_from_file(roms + "/Game A/game.nsp", data);
     expect(picked.path == "Game A/game.nsp" && picked.name == "A cached Pokémon title" &&
                picked.cover == cache + ".tga",

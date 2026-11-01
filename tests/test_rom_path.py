@@ -58,6 +58,9 @@ class RomPathTests(unittest.TestCase):
             ("PPSA99008", "/roms/Pokémon/roms/game.nsp", "Pokémon/roms/game.nsp", "game"),
             ("PPSA99008", "game.nsp", "game.nsp", "game"),
             ("PPSA99008", "Game/game.nsp", "Game/game.nsp", "game"),
+            # ProsperoEden's second title ID follows the same roms/ path rule.
+            ("PPSA99016", "/data/eden/roms/Game A/game.nsp", "Game A/game.nsp", "game"),
+            ("PPSA99016", "/data/games/Game/game.xci", "/data/games/Game/game.xci", "game"),
             ("PPSA99764", "/data/roms/Game/game.iso", "game.iso", "game"),
             ("PPSA99203", "/data/roms/Game/game.iso", "game.iso", "game"),
             ("PPSA12345", "/data/roms/Game/game.bin", "game.bin", "game"),

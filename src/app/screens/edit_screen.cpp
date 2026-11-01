@@ -562,8 +562,8 @@ class EditScreen final : public Screen
             target_index_ = form_.choice_index(RowTarget);
             if (!target_is_generic())
                 forwarder_.target = current_target().title_id;
-            else if (forwarder_.target == "PPSA99008" || forwarder_.target == "PPSA99764" ||
-                     forwarder_.target == "PPSA99203")
+            else if (forwarder_.target == "PPSA99008" || forwarder_.target == "PPSA99016" ||
+                     forwarder_.target == "PPSA99764" || forwarder_.target == "PPSA99203")
                 forwarder_.target.clear();
             sync_stream();
             build(context);
