@@ -52,7 +52,9 @@ std::vector<Target> known_targets()
     // The target apps PS5 Forwarder Builder supports (from ps5-forwarder.mph.am):
     static const Target kAll[] = {
         {"PPSA99008", "ProsperoEden", true, true, false, Feature::none, false,
-         GameLibrary::eden},                    // Nintendo Switch (Eden)
+         GameLibrary::eden}, // Nintendo Switch (Eden)
+        {"PPSA99016", "ProsperoEden ( Mirror )", true, true, false, Feature::none, false,
+         GameLibrary::eden},                    // Nintendo Switch (Eden, mirror title ID)
         {"PPSA99764", "Porpoise", true, false}, // GameCube / Wii (RetroArch)
         {"PPSA99203", "PS5SX2", true, false},   // PlayStation 2 (PCSX2)
         {"PPSA50011", "PS5X360", true, false, false, Feature::none, true,
@@ -72,7 +74,7 @@ std::vector<Target> known_targets()
 
 std::string rom_path_for(const std::string &title_id, const std::string &path)
 {
-    if (title_id == "PPSA99008")
+    if (library_of(title_id) == GameLibrary::eden)
     {
         // Use the first roms/ component: a game may itself contain a folder
         // named roms. Match a whole component, never e.g. myroms/.

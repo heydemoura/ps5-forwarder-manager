@@ -55,6 +55,10 @@ int main()
     expect(listed("PPSA99008") && listed("PPSA99002"), "unflagged targets listed");
     expect(fwd::known_targets().back().title_id[0] == '\0', "generic stays last");
     expect(fwd::target_display_name("PPSA99008") == "ProsperoEden", "unflagged display name");
+    // ProsperoEden ships under two title IDs; the mirror is listed as such.
+    expect(listed("PPSA99016"), "mirror ProsperoEden title ID listed");
+    expect(fwd::target_display_name("PPSA99016") == "ProsperoEden ( Mirror )",
+           "mirror ProsperoEden display name");
 
     if (failures != 0)
         return 1;
